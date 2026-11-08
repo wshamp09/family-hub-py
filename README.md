@@ -434,7 +434,7 @@ It opens like an app, and stays signed in for 30 days.
 
 **Deleting.** Delete buttons ask first (notes and the grocery **Clear checked** are the exceptions): a small box opens with **Yes, delete** (or **Yes, remove**). Tap anywhere else to cancel.
 
-**Staying signed in.** With **Keep me signed in on this device** ticked, the phone or computer stays signed in for 30 days, and each visit renews it. **Sign out** (at the bottom of More) signs that device out. Untick the box on a shared computer.
+**Staying signed in.** With **Keep me signed in on this device** ticked, the phone or computer stays signed in for 30 days, and each visit renews it. On iPhones and Macs, Safari shortens sign-ins saved this way to 7 days, so a device that isn't used for a week asks you to sign in again. A home-screen icon on iPhone keeps its own sign-in, separate from Safari's. **Sign out** (at the bottom of More) signs that device out. Untick the box on a shared computer.
 
 **Minimizing the app on a phone.** Phones pause web apps in the background, which drops the live connection. When you come back, the app reconnects by itself (a brief "Connecting…"). If the app restarted in the meantime, it signs you back in from the 30-day sign-in and opens the page you were on. If it stays stuck, pull down to reload.
 

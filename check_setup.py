@@ -569,7 +569,17 @@ def _():
     js = cookie_js("fh_rt", "abc.def", days=30)
     check("fh_rt=abc.def" in js and "max-age=2592000" in js and "SameSite=Lax" in js, js)
     check("max-age=0" in cookie_js("fh_rt", "", days=0), "sign-out should clear the cookie")
-    return "ok"
+    cond = cookie_js("fh_rt", "", days=0, only_if="old.tok")
+    check('if(m!=="old.tok")return;' in cond and "fh_rt" in cond,
+          "clearing a stale token should only happen while the cookie still holds it")
+    import ast
+    app = (HERE / "streamlit_app.py").read_text()
+    calls = [n.value.func.attr for n in ast.parse(app).body
+             if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call) and isinstance(n.value.func, ast.Attribute)
+             and n.value.func.attr in ("write_pending_cookie", "try_cookie_login")]
+    check(calls[:3] == ["write_pending_cookie", "try_cookie_login", "write_pending_cookie"],
+          "the new token from a cookie sign-in must be saved in the same run (streamlit_app.py order)")
+    return "set, clear, clear-only-if-unchanged, and same-run save OK"
 
 
 # ============================== Live checks (internet / Supabase) ==============================

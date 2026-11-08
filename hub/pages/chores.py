@@ -60,9 +60,8 @@ def chore_dialog(cid=None):
 def page() -> None:
     c1, c2, c3, c4 = st.columns([2, 1, 2, 2], vertical_alignment="bottom")
     ref = c1.date_input("Showing chores for", value=today(), key="chores_ref", format="MM/DD/YYYY")
-    if c2.button("Today", key="chores_today"):
-        st.session_state["chores_ref"] = today()
-        st.rerun()
+    # Changing the date box from code has to happen in a callback (before the box is drawn on the next run)
+    c2.button("Today", key="chores_today", on_click=lambda: st.session_state.update(chores_ref=today()))
     view_label = c3.selectbox("Show", list(CHORE_VIEWS), index=list(CHORE_VIEWS).index("Daily"), key="chores_view")
     if c4.button("Add to list", icon=":material/add:", type="primary", key="chores_add", use_container_width=True):
         chore_dialog()

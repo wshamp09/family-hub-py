@@ -1,9 +1,11 @@
 """Sign-in: Supabase email + password, remembered on each device for 30 days with a cookie that
 holds the refresh token. Streamlit reads cookies natively (st.context.cookies); a tiny script
-writes them. Refresh tokens rotate, so the cookie is rewritten every time it's used."""
+writes them. Refresh tokens rotate (each one works once), so the new token is written to the cookie in
+the same run that used the old one; otherwise closing the app straight away would leave a used token."""
 from __future__ import annotations
 
 import json
+import re
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -15,25 +17,32 @@ COOKIE = "fh_rt"
 REMEMBER_DAYS = 30
 
 
-def cookie_js(name: str, value: str, days: int = REMEMBER_DAYS) -> str:
-    """JavaScript that sets (or, with days=0, clears) a cookie on the app's page."""
+def cookie_js(name: str, value: str, days: int = REMEMBER_DAYS, only_if: str | None = None) -> str:
+    """JavaScript that sets (or, with days=0, clears) a cookie on the app's page. With only_if, the change
+    is made only while the cookie still holds that value (so clearing a stale token never removes a newer
+    one that another tab has just saved)."""
     c = f"{name}={value}; path=/; max-age={days * 86400}; SameSite=Lax"
-    return ("(function(){var c=" + json.dumps(c) + "+(location.protocol==='https:'?'; Secure':'');"
+    cond = ("var d=window.parent.document;var m=(d.cookie.match(/(?:^|; )" + re.escape(name)
+            + "=([^;]*)/)||[])[1]||'';if(m!==" + json.dumps(only_if) + ")return;") if only_if is not None else ""
+    return ("(function(){" + cond + "var c=" + json.dumps(c) + "+(location.protocol==='https:'?'; Secure':'');"
             "try{window.parent.document.cookie=c}catch(e){}try{document.cookie=c}catch(e){}})();")
 
 
-def _queue_cookie(value: str, days: int) -> None:
-    st.session_state["_cookie_js"] = cookie_js(COOKIE, value, days)
+def _queue_cookie(value: str, days: int, only_if: str | None = None) -> None:
+    st.session_state["_cookie_js"] = cookie_js(COOKIE, value, days, only_if)
 
 
 def write_pending_cookie() -> None:
-    """Call once near the top of every run: writes a queued cookie change."""
+    """Writes a queued cookie change. Called right after the cookie sign-in and again at the end of each
+    run, so a new token is saved straight away."""
     js = st.session_state.pop("_cookie_js", None)
     if js:
         components.html(f"<script>{js}</script>", height=0)
 
 
 def complete_login(s: dict, remember: bool) -> bool:
+    # Save the new token first: the old one has just been used up, even if the rest of sign-in fails.
+    _queue_cookie(s["refresh_token"] if remember else "", REMEMBER_DAYS if remember else 0)
     try:
         prof = auth.ensure_profile(s["user_id"], s["email"])
     except Exception as e:  # noqa: BLE001
@@ -48,7 +57,6 @@ def complete_login(s: dict, remember: bool) -> bool:
     prof["access_token"] = s["access_token"]
     prof["refresh_token"] = s["refresh_token"]
     st.session_state["user"] = prof
-    _queue_cookie(s["refresh_token"] if remember else "", REMEMBER_DAYS if remember else 0)
     st.session_state["_remember"] = remember
     print(f"[auth] signed in: {s['email']}")
     return True
@@ -67,8 +75,15 @@ def try_cookie_login() -> None:
         s = auth.refresh_login(tok)
         if s["ok"]:
             complete_login(s, True)
+        elif s.get("status") in (400, 401, 403):
+            # Supabase says the saved token is no longer valid: forget it (unless another tab replaced it)
+            print(f"[auth] saved sign-in no longer valid: {s['message']}")
+            _queue_cookie("", 0, only_if=tok)
         else:
-            _queue_cookie("", 0)
+            # Supabase couldn't be reached: keep the saved sign-in and try again on the next visit
+            print(f"[auth] couldn't check saved sign-in: {s['message']}")
+            st.session_state["_cookie_tried"] = False
+            st.session_state["_login_msg"] = "Couldn't reach the sign-in service. Reload in a moment, or sign in below."
 
 
 def fresh_access_token() -> str | None:

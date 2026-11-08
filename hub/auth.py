@@ -49,7 +49,8 @@ def call(method: str, url: str, headers: dict, json=None, params=None, data=None
 
 def _session(r: dict) -> dict:
     if not r["ok"]:
-        return {"ok": False, "message": "Wrong email or password." if r["status"] == 400 else r["message"]}
+        return {"ok": False, "status": r["status"],
+                "message": "Wrong email or password." if r["status"] == 400 else r["message"]}
     b = r["body"]
     return {"ok": True, "user_id": b["user"]["id"], "email": b["user"]["email"],
             "access_token": b["access_token"], "refresh_token": b["refresh_token"]}

@@ -29,6 +29,7 @@ if _missing:
 
 session.write_pending_cookie()
 session.try_cookie_login()
+session.write_pending_cookie()      # save the new token from the cookie sign-in straight away
 
 if not ui.user():
     session.login_page()
@@ -82,3 +83,4 @@ nav = st.navigation({"": [pages[k] for k, *_ in MAIN],
 nav.run()
 if nav.url_path not in NO_FAB and nav.url_path != "sign-out":
     quick.fab()
+session.write_pending_cookie()      # anything a page queued (e.g. a token refreshed to change a password)

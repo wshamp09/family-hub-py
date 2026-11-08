@@ -235,8 +235,9 @@ def season_section() -> None:
     if pr["tip"]:
         st.caption(f"💡 {pr['tip']}")
     b1, b2 = st.columns(2)
-    if b1.button("Meal ideas with these", type="primary", key="season_ideas", use_container_width=True):
-        st.session_state["seasonal"] = True
+    # Ticking "Use what's in season" from code has to happen in a callback (the box is already drawn above)
+    if b1.button("Meal ideas with these", type="primary", key="season_ideas", use_container_width=True,
+                 on_click=lambda: st.session_state.update(seasonal=True)):
         run_ideas(True)
     if b2.button("Refresh", icon=":material/refresh:", key="season_refresh", use_container_width=True):
         with st.spinner("Asking the AI what's in season…"):
