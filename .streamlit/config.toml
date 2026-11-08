@@ -1,0 +1,20 @@
+# The Shamp House: Streamlit settings (safe to commit; secrets go in secrets.toml)
+
+[server]
+enableStaticServing = true        # serves static/ (fonts, logo, icons) at app/static/
+maxUploadSize = 40                # MB per upload; phone photos are a few MB each
+
+[client]
+toolbarMode = "minimal"           # hide the developer menu
+showErrorDetails = "none"         # people see a short message, not a stack trace
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#2E7D6B"          # palm
+backgroundColor = "#F6EEE3"       # sand
+secondaryBackgroundColor = "#EFE4D4"
+textColor = "#23363A"             # ink
+font = "sans serif"
