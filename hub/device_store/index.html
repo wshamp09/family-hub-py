@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>saved sign-in</title></head>
+<body style="margin:0">
+<script>
+// Keeps "Keep me signed in" on this device. The saved sign-in lives in this browser's own storage
+// (localStorage) and is sent to the app over Streamlit's live connection, which works on Streamlit
+// Community Cloud (cookies don't: the platform removes them before the app can read them).
+// It speaks Streamlit's component messages directly, so no build step or extra package is needed.
+(function () {
+  var KEY = "fh_signin";
+  var lastSent = null, lastWrite = null, maxDays = 30;
+
+  function send(type, data) {
+    var msg = { isStreamlitMessage: true, type: type };
+    for (var k in data) msg[k] = data[k];
+    window.parent.postMessage(msg, "*");
+  }
+  function current() {        // the saved token, or "" if none or older than maxDays since it was saved
+    var raw = localStorage.getItem(KEY) || "";
+    if (!raw) return "";
+    try {
+      var o = JSON.parse(raw);
+      if (Date.now() - o.at > maxDays * 864e5) { localStorage.removeItem(KEY); return ""; }
+      return o.token || "";
+    } catch (e) { return ""; }
+  }
+  function read() {
+    try { return { token: current(), ok: true }; }
+    catch (e) { return { token: "", ok: false }; }          // storage blocked (e.g. private browsing)
+  }
+  function write(a) {
+    try {
+      var cur = current();
+      // only_if: change it only while it still holds that token (another tab may have saved a newer one)
+      if (a.only_if !== null && a.only_if !== undefined && cur !== a.only_if) return;
+      if (a.token) localStorage.setItem(KEY, JSON.stringify({ token: a.token, at: Date.now() }));
+      else localStorage.removeItem(KEY);
+    } catch (e) {}
+  }
+
+  window.addEventListener("message", function (ev) {
+    var m = ev.data || {};
+    if (m.type !== "streamlit:render") return;
+    var a = m.args || {};
+    if (a.days) maxDays = a.days;
+    if (a.write_id && a.write_id !== lastWrite) {   // each change is done once, then confirmed by its id
+      write(a);
+      lastWrite = a.write_id;
+    }
+    var out = read();
+    out.write_id = lastWrite;
+    var s = JSON.stringify(out);
+    if (s !== lastSent) {                             // only report changes (each report reruns the app)
+      lastSent = s;
+      send("streamlit:setComponentValue", { value: out, dataType: "json" });
+    }
+    send("streamlit:setFrameHeight", { height: 0 });
+  });
+  send("streamlit:componentReady", { apiVersion: 1 });
+})();
+</script>
+</body>
+</html>

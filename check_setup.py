@@ -563,26 +563,32 @@ def _():
     return f"{len(expect)} spreadsheet values reproduced"
 
 
-@step("Sign-in cookie helpers")
+@step("Keep me signed in (saved on each device, read through the page)")
 def _():
-    from hub.session import cookie_js
-    js = cookie_js("fh_rt", "abc.def", days=30)
-    check("fh_rt=abc.def" in js and "max-age=2592000" in js and "SameSite=Lax" in js, js)
-    check("max-age=0" in cookie_js("fh_rt", "", days=0), "sign-out should clear the cookie")
-    cond = cookie_js("fh_rt", "", days=0, only_if="old.tok")
-    check('if(m!=="old.tok")return;' in cond and "fh_rt" in cond,
-          "clearing a stale token should only happen while the cookie still holds it")
+    from hub.session import pending_write, saved_login_state
+    page = HERE / "hub" / "device_store" / "index.html"
+    check(page.exists(), "hub/device_store/index.html is missing")
+    js = page.read_text()
+    for needed in ("streamlit:componentReady", "streamlit:setComponentValue", "streamlit:render", "localStorage"):
+        check(needed in js, f"device store page doesn't use {needed}")
+    check(saved_login_state(None, None, False, None) == ("wait", ""), "should wait until the device reports")
+    check(saved_login_state(None, None, True, None) == ("none", ""), "'Sign in with email instead' should skip waiting")
+    check(saved_login_state({"token": "T1"}, None, False, None) == ("try", "T1"), "a saved sign-in should be tried")
+    check(saved_login_state({"token": "T1"}, None, False, "T1") == ("none", ""), "the same token shouldn't be tried twice")
+    check(saved_login_state({"token": ""}, None, False, None) == ("none", ""), "nothing saved -> sign-in page")
+    check(saved_login_state({"token": "T1"}, {"user_id": "u"}, False, None) == ("none", ""), "already signed in")
+    q = {"token": "T2", "only_if": None, "write_id": "w1"}
+    check(pending_write({"write_id": None}, q) == q and pending_write({"write_id": "w1"}, q) is None,
+          "a queued save should stay queued until the device confirms it")
     import ast
     app = (HERE / "streamlit_app.py").read_text()
-    calls = [n.value.func.attr for n in ast.parse(app).body
-             if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call) and isinstance(n.value.func, ast.Attribute)
-             and n.value.func.attr in ("write_pending_cookie", "try_cookie_login")]
-    check(calls[:3] == ["write_pending_cookie", "try_cookie_login", "write_pending_cookie"],
-          "the new token from a cookie sign-in must be saved in the same run (streamlit_app.py order)")
-    return "set, clear, clear-only-if-unchanged, and same-run save OK"
+    first = [n.value.func.attr for n in ast.parse(app).body if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call)
+             and isinstance(n.value.func, ast.Attribute) and n.value.func.attr == "render_store"]
+    check(first == ["render_store"] and app.index("render_store()") < app.index("try_saved_login()"),
+          "streamlit_app.py should draw the device store once, before trying the saved sign-in")
+    return "device page, wait/try/skip rules, and save-until-confirmed OK"
 
 
-# ============================== Live checks (internet / Supabase) ==============================
 @step("Database connection (session pooler)", live=True)
 def _():
     from hub import db

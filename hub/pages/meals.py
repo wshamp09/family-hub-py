@@ -22,12 +22,14 @@ def ideas() -> list[dict]:
     return st.session_state.setdefault("meal_ideas", [])
 
 
-def add_ideas(meals: list[dict], source: str) -> None:
+def add_ideas(meals: list[dict], source: str, generated: bool = False) -> None:
+    """New ideas go on top. A new generated set replaces the last generated set; meals you named stay."""
     n0 = st.session_state.get("meal_uid", 0)
     for k, m in enumerate(meals, 1):
-        m["uid"], m["source"] = n0 + k, source
+        m["uid"], m["source"], m["generated"] = n0 + k, source, generated
     st.session_state["meal_uid"] = n0 + len(meals)
-    st.session_state["meal_ideas"] = meals + ideas()
+    keep = [m for m in ideas() if not (generated and m.get("generated"))]
+    st.session_state["meal_ideas"] = meals + keep
 
 
 def drop_idea(uid) -> None:
@@ -133,7 +135,8 @@ def recipe_dialog(title, description, ingredients, instructions):
 
 
 # ---- Sections ---------------------------------------------------------------------------------------
-def run_ideas(seasonal_on: bool) -> None:
+def run_ideas(seasonal_on: bool) -> bool:
+    """Ask the AI for ideas; True when new ideas were added."""
     recent = [r["meal_name"] for r in db.get("select distinct meal_name from meal_plan where plan_date >= $1::date",
                                              today() - timedelta(days=21))]
     season_txt = ""
@@ -150,9 +153,12 @@ def run_ideas(seasonal_on: bool) -> None:
                                   healthy=st.session_state.get("healthy", True), avoid=st.session_state.get("avoid", ""),
                                   household=household(), recent=recent, seasonal=season_txt)
             if res:
-                add_ideas(res, "ai")
+                add_ideas(res, "ai", generated=True)
+                return True
+            st.warning("The AI didn't return any ideas. Try again.")
         except Exception as e:  # noqa: BLE001
             st.error(str(e))
+    return False
 
 
 def idea_card(m: dict) -> None:
@@ -208,6 +214,10 @@ def ideas_section() -> None:
         else:
             add_ideas([{"name": named.strip(), "description": "", "prep_minutes": None, "healthy": False,
                         "ingredients": [], "instructions": ""}], "manual")
+    if ideas():
+        if st.button("Clear ideas", icon=":material/clear_all:", key="ideas_clear"):
+            st.session_state["meal_ideas"] = []
+            st.rerun()
     for m in ideas():
         idea_card(m)
 
@@ -238,7 +248,8 @@ def season_section() -> None:
     # Ticking "Use what's in season" from code has to happen in a callback (the box is already drawn above)
     if b1.button("Meal ideas with these", type="primary", key="season_ideas", use_container_width=True,
                  on_click=lambda: st.session_state.update(seasonal=True)):
-        run_ideas(True)
+        if run_ideas(True):
+            st.rerun()                  # the ideas list sits above this panel, so draw the page again
     if b2.button("Refresh", icon=":material/refresh:", key="season_refresh", use_container_width=True):
         with st.spinner("Asking the AI what's in season…"):
             ui.try_db(seasonal.seasonal_produce, "Updated", None, True)

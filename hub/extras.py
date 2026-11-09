@@ -399,12 +399,21 @@ EXTRA_SOURCES = {"history": fetch_history, "joke": fetch_joke,
                  "word": fetch_word, "art": fetch_art, "recipe": fetch_recipe, "trivia": _trivia}
 
 
+def current_format(kind: str, saved) -> bool:
+    """False for a saved item from an older source, which is then fetched again and replaced: an animal
+    saved before the switch to iNaturalist (or by the R version of the app) has no taxon_id."""
+    if kind == "animal":
+        return isinstance(saved, dict) and bool(saved.get("taxon_id"))
+    return True
+
+
 def get_extra(kind: str, day: date | None = None):
     """Today's saved value for one kind, fetching and saving it the first time it's needed."""
     day = day or today()
     r = db.one("select content from daily_extras where extra_date = $1::date and kind = $2", day, kind)
-    if r:
-        return json.loads(r["content"])
+    saved = json.loads(r["content"]) if r else None
+    if saved is not None and current_format(kind, saved):
+        return saved
     last = _fail.get(kind)
     if last and time.time() - last < EXTRA_RETRY_MIN * 60:
         return None
@@ -414,7 +423,10 @@ def get_extra(kind: str, day: date | None = None):
     except Exception as e:  # noqa: BLE001
         print(f"[extras] {kind} failed: {e}")
         _fail[kind] = time.time()
-        return None
+        return saved            # an older-format item is still better than nothing
+    # "do update" only replaces an older-format item (see current_format); otherwise the first one saved wins
     db.run("""insert into daily_extras (extra_date, kind, content) values ($1::date, $2, $3)
-              on conflict (extra_date, kind) do nothing""", day, kind, json.dumps(val))
+              on conflict (extra_date, kind) do update set content = excluded.content
+              where daily_extras.content not like '%"taxon_id"%' and excluded.kind = 'animal'""",
+           day, kind, json.dumps(val))
     return val

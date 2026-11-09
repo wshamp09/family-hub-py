@@ -34,6 +34,7 @@ A family organizer built in Python with Streamlit, hosted on Streamlit Community
 ```
 streamlit_app.py            Starts the app: sign-in, menu, pages
 check_setup.py              Checks code, secrets and every outside service (step 9)
+push_to_github.sh           Uploads the folder to your GitHub repo (step 11, and every update)
 requirements.txt            Python packages (Community Cloud installs these)
 .gitignore                  Keeps secrets and caches out of git
 .streamlit/
@@ -47,7 +48,8 @@ hub/                        App code
   config.py                 Reads secrets; time zone; shared constants
   db.py                     Database connection pool and queries
   auth.py                   Supabase sign-in, password and login management
-  session.py                Sign-in page and the 30-day "keep me signed in" cookie
+  session.py                Sign-in page and "keep me signed in" (30 days)
+  device_store/             Tiny page component that keeps the saved sign-in on each device
   ui.py                     Look and feel (cards, chips, colors) and shared helpers
   forms.py                  Appointment/reminder and expense forms
   rows.py                   Chore, duty, bill and workout rows
@@ -179,7 +181,7 @@ What it checks:
   - photos: weeks, photo of the week and the collage layout
   - holidays (Google feed and church days), art of the day, grocery combining
   - the budget maths reproduces the household spreadsheet
-  - the sign-in cookie
+  - keep me signed in (the device component and its rules)
 - live, each one a real request:
   - the database connection (session pooler) and that every table exists
   - Supabase Auth is reachable and public sign-ups are off
@@ -209,7 +211,14 @@ Starting it with `python -m` makes sure it uses the Python in `.venv` (where the
 3. Click **uploading an existing file**. Drag in everything from the app folder **except** `.venv` and `.streamlit/secrets.toml`. Hidden folders don't always drag in, so check that `.streamlit/config.toml` and `.gitignore` are in the list; if not, use **Add file → Create new file**, type `.streamlit/config.toml` as the name and paste its contents.
 4. Click **Commit changes**.
 
-**Option B: git in the terminal**
+**Option B: the push script (easiest after the first time)**
+Create the empty private repo on github.com first (Option A steps 1–2). If its name isn't `family-hub-py`, change the `REPO=` line near the top of `push_to_github.sh`. Then, in the app folder:
+```bash
+bash push_to_github.sh "First upload"
+```
+It works in a freshly unzipped folder (it sets up git and lines up with what's already on GitHub) or one that's already set up. It never uploads `secrets.toml` or `.venv`: it stops with a message instead. It prints each step (1/6 to 6/6) as it goes.
+
+**Option C: git commands by hand**
 ```bash
 git init
 git add .
@@ -251,13 +260,13 @@ Open the app's address in the phone's browser and sign in with **Keep me signed 
 - **iPhone (Safari):** Share → **Add to Home Screen**.
 - **Android (Chrome):** ⋮ menu → **Add to Home screen**.
 
-It opens like an app, and stays signed in for 30 days.
+It opens like an app and stays signed in (each visit renews it; 30 days without a visit signs it out).
 
 ---
 
 ## Updating the app
 
-- **Code changes:** edit the files and push to GitHub (or upload the changed files on github.com). Community Cloud notices the change and redeploys within a minute or two.
+- **Code changes:** edit the files (or unzip a new version over the folder, keeping `.streamlit/secrets.toml`), then run `bash push_to_github.sh "what changed"`. Community Cloud notices the change and redeploys within a minute or two.
 - **New packages:** add them to `requirements.txt` and push; Community Cloud installs them on the next deploy. Keep Streamlit pinned to an exact version so it doesn't change underneath you.
 - **Secrets:** change them in the app's **Settings → Secrets** on share.streamlit.io. The app restarts with the new values. Update your local `secrets.toml` too so `check_setup.py` matches.
 - **Database changes:** if `sql/schema.sql` changes, run it again in the Supabase SQL Editor.
@@ -283,7 +292,7 @@ It opens like an app, and stays signed in for 30 days.
   - Everyone gets the same recipe each day. Desserts are skipped, and the same recipe isn't repeated within 90 days.
   - It also shows in **Today's extras**, with a link to Meals.
   - TheMealDB is free for personal projects with its public test key, so no key is needed. Measurements are as the recipe gives them, sometimes metric.
-- **Generate ideas** asks Groq for meal ideas. **Healthy options only** is on by default. **Settings → Meal preferences** is sent with every request, so put family size, dislikes, allergies and time limits there.
+- **Generate ideas** asks Groq for meal ideas. Each new set replaces the last generated set (meals you named yourself stay), and **Clear ideas** removes them all. **Healthy options only** is on by default. **Settings → Meal preferences** is sent with every request, so put family size, dislikes, allergies and time limits there.
 - To use your own dish, turn on **Add your own recipe** and type it. Choose **Get recipe with AI** for ingredients and steps, or **Add without recipe**.
 - On any idea, **Ingredients & steps** shows the recipe, **Save to library** keeps it for good, and **Add to plan** puts it on a day. Adding to the plan can also put its ingredients on the grocery list.
 - In **Week plan**, the **+** on a day adds a typed meal, a library meal, or **Leftovers** from a meal in the past week. The cart button on a planned meal sends its ingredients to the grocery list.
@@ -354,7 +363,7 @@ It opens like an app, and stays signed in for 30 days.
 
 **In season now (Meals).**
 - Lists fruit, vegetables and herbs in season in Northeast Florida this month, with a star on those at their best and a shopping tip. Groq writes the list once a month and it is saved for everyone, so it isn't a fixed list in the app. **Refresh** asks again. If nobody has loaded this month's list yet, tap **Load this month's produce**.
-- **Use what's in season** (next to **Healthy options only**) builds generated ideas around this month's produce. **Meal ideas with these** on the panel does the same in one tap.
+- **Use what's in season** (next to **Healthy options only**) builds generated ideas around this month's produce. **Meal ideas with these** on the panel ticks it and makes a new set in one tap; the ideas appear at the top of **Meal ideas**.
 - It's AI-written, so treat it as a guide and check at the market.
 
 **School run.**
@@ -392,6 +401,7 @@ It opens like an app, and stays signed in for 30 days.
   - **Photos:** only photos the photographer shared under a Creative Commons licence are used, and their credit is shown under each one, as the licence requires.
   - **Variety:** the same species isn't shown again within 60 days. If nothing new was seen in the last two weeks, it looks back 60 days.
   - **Home:** the location comes from `WEATHER_LAT` and `WEATHER_LON`. Exact spots aren't shown.
+  - If the day's saved animal came from an older source (for example the R version of the app, which shares the database), it's replaced with an iNaturalist one.
 - **Recipe of the day:** see **Meals** above.
 - **Art of the day:** a public-domain painting from the Art Institute of Chicago (free, no key): the image, title, year, artist and a few sentences from the museum's description, with a link to the museum page. Tap the picture to see it full size there. The museum's picture server only answers requests that come from its own website, so the app downloads each day's picture itself and shows its own copy (if that fails, the painting shows without its picture). The descriptions are licensed CC BY, so the museum is credited under each one.
 - **Trivia (Trivial Pursuit style):** one multiple-choice question a day from the Open Trivia Database (free, CC BY-SA 4.0). It's the same question for everyone, and each person answers once.
@@ -434,7 +444,12 @@ It opens like an app, and stays signed in for 30 days.
 
 **Deleting.** Delete buttons ask first (notes and the grocery **Clear checked** are the exceptions): a small box opens with **Yes, delete** (or **Yes, remove**). Tap anywhere else to cancel.
 
-**Staying signed in.** With **Keep me signed in on this device** ticked, the phone or computer stays signed in for 30 days, and each visit renews it. On iPhones and Macs, Safari shortens sign-ins saved this way to 7 days, so a device that isn't used for a week asks you to sign in again. A home-screen icon on iPhone keeps its own sign-in, separate from Safari's. **Sign out** (at the bottom of More) signs that device out. Untick the box on a shared computer.
+**Staying signed in.** With **Keep me signed in on this device** ticked, that phone or computer stays signed in. Each visit renews it, and it's forgotten after 30 days without a visit. When you open the app it shows "Signing you in…" for a moment, then Today. If that ever hangs, tap **Sign in with email instead**.
+- **How it's kept:** the sign-in is saved in the browser's own storage on that device and passed to the app through a tiny invisible part of the page. Cookies aren't used: Streamlit Community Cloud removes them before the app can read them.
+- **Each sign-in works once:** every visit swaps it for a new one and saves that straight away.
+- **iPhone home-screen icon:** it keeps its own sign-in, separate from Safari's, so sign in once from the icon with the box ticked.
+- **Safari limit:** on iPhones and Macs, Safari may clear what a site saved if it isn't opened for about a week.
+- **Signing out:** **Sign out** (at the bottom of More) forgets the device's sign-in. Untick the box on a shared computer.
 
 **Minimizing the app on a phone.** Phones pause web apps in the background, which drops the live connection. When you come back, the app reconnects by itself (a brief "Connecting…"). If the app restarted in the meantime, it signs you back in from the 30-day sign-in and opens the page you were on. If it stays stuck, pull down to reload.
 
@@ -456,12 +471,12 @@ What's switched off is hidden from the menus and pages, and the app also refuses
 
 ## Notes
 
-- **Security.** Nothing loads until someone signs in with a login you created. The code lives in a private repo, and the secrets live only in Community Cloud's Secrets box and your own `secrets.toml`, never in git. Ask AI chats and journals are stored per login and only shown to their owner. Public sign-ups are off (step 5), and the database is closed to the public API (step 2). The 30-day sign-in is kept in a cookie on each device; signing out removes it.
+- **Security.** Nothing loads until someone signs in with a login you created. The code lives in a private repo, and the secrets live only in Community Cloud's Secrets box and your own `secrets.toml`, never in git. Ask AI chats and journals are stored per login and only shown to their owner. Public sign-ups are off (step 5), and the database is closed to the public API (step 2). The saved sign-in is kept in each device's browser storage, works only once (each visit replaces it), and is forgotten after 30 days without a visit or when you sign out.
 - **Time zone.** All dates and times use `APP_TZ` (default `America/New_York`). Community Cloud servers run on UTC, so the app sets this explicitly, including for the database session.
 - **Community Cloud limits.** The free plan gives each app about 1 GB of memory, which is plenty for this app. Apps sleep after 12 hours without visits (see **Updating the app**). One private app is allowed per account.
 - **Backups.** Your data lives in Supabase. On the free tier, you can take an export under **Database → Backups**, or with `pg_dump` against the session pooler.
 - **Troubleshooting.**
   - *"Error running app" or a blank page after deploy:* open **Manage app** to read the log. If a secret is missing, the app says which ones instead of showing the sign-in page; paste the full secrets again under **Settings → Secrets**.
   - *Database connection fails on Community Cloud:* make sure `PG_HOST` is the **Session pooler** host and `PG_USER` includes `.your-project-ref`.
-  - *Sign-in isn't remembered:* check that the browser allows cookies for the app's address (private browsing clears them when closed).
+  - *Sign-in isn't remembered:* private browsing forgets saved sign-ins when the tab closes, and Safari may clear them after a week without a visit. Sign in again with the box ticked.
   - *Run the checks again:* `python check_setup.py` on your computer tests the same secrets and services the app uses.
