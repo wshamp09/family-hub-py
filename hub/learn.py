@@ -1,6 +1,6 @@
-"""Daily learning: four short lessons a day for each track (grown-ups and kids), plus a knowledge check.
+"""Daily learning: four short lessons a day for grown-ups, plus a knowledge check.
 
-How a day's lessons are made (once per track per day, then saved in daily_extras and shared by everyone):
+How a day's lessons are made (once a day, then saved in daily_extras and shared by everyone):
   1. AI picks one topic per subject, each tied to a real English Wikipedia article, avoiding recent topics.
   2. Each article is looked up on Wikipedia (title, picture, link and the article text).
   3. AI writes each lesson ONLY from that article's text, plus 3 multiple-choice questions on the lessons.
@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from . import db, groq
 from .extras import get_json
 
-LEARN_TRACKS = {"adult": "Grown-ups", "kids": "Kids"}
+LEARN_TRACKS = {"adult": "Grown-ups"}     # the track key is kept in saved lessons and learn_log
 LEARN_SUBJECTS = {            # key: (label, emoji, section colour, what the subject covers)
     "science": ("Science", "🔭", "appt", "space, physics, chemistry, earth science, animals and plants"),
     "history": ("History", "🏛️", "bills", "world and American history, inventions, famous places and people from the past"),
@@ -25,8 +25,7 @@ LEARN_SUBJECTS = {            # key: (label, emoji, section colour, what the sub
     "health": ("Health & how things work", "⚙️", "work",
                "the human body, health and nutrition science, everyday technology and how machines work"),
 }
-LEARN_WPM = {"adult": 200, "kids": 120}        # reading speed (kids' lessons are read aloud)
-LEARN_KIDS_LEVEL = "children aged 4 to 7, read aloud by a parent"
+LEARN_WPM = {"adult": 200}                     # reading speed, words a minute
 LEARN_NO_REPEAT_DAYS = 180
 LEARN_ARTICLE_CHARS = 3500                     # how much of each article the AI is given (keeps each request
                                                # well under Groq's free per-minute token limit)
@@ -103,7 +102,7 @@ def wiki_article(title: str) -> dict | None:
 
 # ---- AI steps ---------------------------------------------------------------------------------------
 def _audience(track: str) -> str:
-    return LEARN_KIDS_LEVEL if track == "kids" else "curious adults (parents of young children)"
+    return "curious adults (parents of young children)"
 
 
 def pick_topics(track: str, avoid: list[str]) -> dict:
@@ -118,10 +117,7 @@ def pick_topics(track: str, avoid: list[str]) -> dict:
 
 
 def write_lessons(track: str, arts: dict) -> dict:
-    kid = track == "kids"
-    style = ("Use very simple words and short sentences, warm and playful, 90 to 140 words, with one "
-             "'Try this' idea a parent and child can do together at the end." if kid else
-             "Clear and engaging, 280 to 420 words, short paragraphs, with one concrete example. "
+    style = ("Clear and engaging, 280 to 420 words, short paragraphs, with one concrete example. "
              "End with a one-line 'Takeaway'.")
     sys = ("You write short daily lessons for " + _audience(track) + ". Use ONLY facts stated in the article text "
            "given for each subject; don't add facts from elsewhere. If the article doesn't support a point, leave "
@@ -153,7 +149,7 @@ def make_day(track: str, day: date, progress=print) -> dict:
     recent = _recent_articles(track, day)
     arts, tried = {}, list(recent)
     for rnd in (1, 2):              # a second round fills subjects whose article was missing or used recently
-        progress(f"Choosing {LEARN_TRACKS[track].lower()} topics…" if rnd == 1 else "Choosing replacement topics…")
+        progress("Choosing today's topics…" if rnd == 1 else "Choosing replacement topics…")
         topics = pick_topics(track, tried)
         todo = [k for k in LEARN_SUBJECTS if k not in arts]
         for i, k in enumerate(todo, 1):

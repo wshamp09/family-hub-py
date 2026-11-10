@@ -1,8 +1,8 @@
-"""Today's extras: trivia, quote, word, history, animal, art, kids' joke, dinner question.
+"""Today's extras: trivia, quote, word, history, animal, art, recipe, dinner question.
 Each is fetched once a day from its source, saved (daily_extras), and shown to everyone that day:
   history  Wikipedia "On this day" (selected events), 1-2 items
-  joke     icanhazdadjoke.com (clean dad jokes)
   dinner   a conversation starter written by AI (Groq), avoiding recent ones
+  space    NASA's Astronomy Picture of the Day (api.nasa.gov; NASA_API_KEY optional)
   recipe   a random main-dish recipe with a photo, from TheMealDB (free key "1", personal use)
   animal   a wild animal spotted near home in the last two weeks, from iNaturalist (photo credited)
   quote    ZenQuotes quote of the day (zenquotes.io; credit link required)
@@ -22,7 +22,7 @@ import requests
 from . import db, groq
 from .config import has_text, today
 from .dates import day_num
-from .journal import join_names, kids_names
+from .data import join_names, kids_names
 
 EXTRA_UA = "TheShampHouse/1.0 (family organizer; Python requests)"
 EXTRA_RETRY_MIN = 30
@@ -76,13 +76,6 @@ def fetch_history(day: date) -> list[dict]:
             url = ""
         out.append({"year": str(e.get("year", "")), "text": str(e.get("text", "")), "url": url})
     return out
-
-
-def fetch_joke(day: date) -> dict:
-    j = get_json("https://icanhazdadjoke.com/")
-    if not has_text(j.get("joke")):
-        raise RuntimeError("no joke returned")
-    return {"text": str(j["joke"])}
 
 
 def fetch_dinner_question(day: date) -> dict:
@@ -182,6 +175,44 @@ def fetch_animal(day: date) -> dict:
     except Exception:  # noqa: BLE001
         pick["text"] = ""
     return pick
+
+
+# ---- Space photo of the day (NASA Astronomy Picture of the Day) ----------------------------------------
+# api.nasa.gov: a free key (NASA_API_KEY) allows 1,000 requests an hour; without one the shared DEMO_KEY is
+# used (30 an hour, 50 a day), which is enough for one request a day but can be used up by other apps on
+# the same server. Some days are a video: then its thumbnail is shown with a link to watch.
+APOD_API = "https://api.nasa.gov/planetary/apod"
+
+
+def apod_page(d: str) -> str:
+    """APOD's own page for a date, e.g. 2026-11-10 -> https://apod.nasa.gov/apod/ap261110.html"""
+    return f"https://apod.nasa.gov/apod/ap{d[2:4]}{d[5:7]}{d[8:10]}.html" if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d or "") else "https://apod.nasa.gov/apod/"
+
+
+def clean_apod(a: dict) -> dict:
+    video = a.get("media_type") == "video"
+    image = (a.get("thumbnail_url") if video else a.get("url")) or ""
+    credit = re.sub(r"\s+", " ", str(a.get("copyright") or "")).strip()
+    return {"title": str(a.get("title") or "").strip(), "date": str(a.get("date") or ""),
+            "text": first_sentences(str(a.get("explanation") or ""), 3), "image": image,
+            "video": str(a.get("url") or "") if video else "", "credit": f"© {credit}" if credit else "NASA",
+            "url": apod_page(str(a.get("date") or ""))}
+
+
+def fetch_apod(day: date) -> dict:
+    from .config import cfg
+    key = cfg("NASA_API_KEY", "") or "DEMO_KEY"
+    try:
+        a = get_json(APOD_API, params={"api_key": key, "date": day.isoformat(), "thumbs": "true"})
+    except RuntimeError as e:
+        if "HTTP 400" not in str(e) and "HTTP 404" not in str(e):
+            raise
+        # just after midnight today's picture may not be posted yet: use the latest one
+        a = get_json(APOD_API, params={"api_key": key, "thumbs": "true"})
+    r = clean_apod(a)
+    if not r["title"] or not r["image"].startswith("http"):
+        raise RuntimeError("no picture today (it may be an interactive page)")
+    return r
 
 
 # ---- Recipe of the day (TheMealDB) -------------------------------------------------------------------
@@ -394,9 +425,9 @@ def _trivia(day):
     return fetch_trivia(day)
 
 
-EXTRA_SOURCES = {"history": fetch_history, "joke": fetch_joke,
+EXTRA_SOURCES = {"history": fetch_history,
                  "dinner": fetch_dinner_question, "animal": fetch_animal, "quote": fetch_quote,
-                 "word": fetch_word, "art": fetch_art, "recipe": fetch_recipe, "trivia": _trivia}
+                 "word": fetch_word, "art": fetch_art, "space": fetch_apod, "recipe": fetch_recipe, "trivia": _trivia}
 
 
 def current_format(kind: str, saved) -> bool:

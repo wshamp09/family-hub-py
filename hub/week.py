@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from . import data, db, holidays
+from . import countdown, data, db, holidays
 from .config import has_text, now
 from .dates import fmt_day, month_start, week_start
 
@@ -27,7 +27,8 @@ def week_data(ws: date) -> dict:
             "appts": data.appts_between(ws, we),
             "workouts": db.get("""select * from workouts where workout_date between $1::date and $2::date
                                   order by workout_date, id""", ws, we),
-            "bills": bills, "chores": data.chore_dates_between(ws, we), "holidays": hols}
+            "bills": bills, "chores": data.chore_dates_between(ws, we), "holidays": hols,
+            "countdowns": countdown.between(ws, we)}
 
 
 def week_gaps(w: dict) -> list[str]:

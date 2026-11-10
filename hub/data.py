@@ -9,6 +9,19 @@ from .config import APP_TZ, TZ, as_id, has_text, today
 from .dates import add_months, days_in_month, month_start, months_between, period_start, to_date
 
 
+def kids_names() -> list[str]:
+    """From Settings > Kids' names (used by the dinner question)."""
+    return [k.strip() for k in db.get_setting("kids_names", "").split(",") if k.strip()]
+
+
+def join_names(n: list[str]) -> str:
+    if not n:
+        return "the kids"
+    if len(n) == 1:
+        return n[0]
+    return ", ".join(n[:-1]) + " and " + n[-1]
+
+
 def get_people(active_only: bool = True) -> list[dict]:
     return db.get("select id, name, is_active, sort_order from people"
                   + (" where is_active" if active_only else "") + " order by sort_order, name")

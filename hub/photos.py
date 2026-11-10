@@ -144,7 +144,10 @@ def photo_fix_week(week: date) -> None:
     db.run("update photos set is_featured = true where id = $1", keep)
 
 
-def photo_add(raw: bytes, user: dict, fallback_date: date | None = None) -> dict:
+PHOTO_CAPTION_MAX = 200
+
+
+def photo_add(raw: bytes, user: dict, fallback_date: date | None = None, caption: str = "") -> dict:
     p = photo_prepare(raw)
     taken = p["taken"] or fallback_date or today()
     week = week_start(taken)
@@ -152,10 +155,12 @@ def photo_add(raw: bytes, user: dict, fallback_date: date | None = None) -> dict
     path, thumb = stem + ".jpg", stem + "-thumb.jpg"
     st_upload(p["full"], path)
     st_upload(p["thumb"], thumb)
-    db.run("""insert into photos (week_start, taken_on, path, thumb_path, width, height, added_by, added_by_name, is_featured)
+    cap = (caption or "").strip()[:PHOTO_CAPTION_MAX] or None
+    db.run("""insert into photos (week_start, taken_on, path, thumb_path, width, height, added_by, added_by_name,
+                                  is_featured, caption)
               values ($1::date, $2::date, $3, $4, $5, $6, $7::uuid, $8,
-                      not exists (select 1 from photos where week_start = $1::date and is_featured))""",
-           week, taken, path, thumb, p["width"], p["height"], user["user_id"], user["display_name"])
+                      not exists (select 1 from photos where week_start = $1::date and is_featured), $9)""",
+           week, taken, path, thumb, p["width"], p["height"], user["user_id"], user["display_name"], cap)
     return {"week": week, "taken": taken, "from_camera": p["taken"] is not None}
 
 

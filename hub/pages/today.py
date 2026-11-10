@@ -6,10 +6,11 @@ from datetime import date, timedelta
 
 import streamlit as st
 
-from hub import data, db, extras, forms, journal, learn, rows, traffic, trivia, ui, verses, weather
+from hub import countdown, data, db, extras, forms, gratitude, learn, news, rows, traffic, trivia, ui, verses, weather
 from hub import week as weekmod
+from hub.pages import gratitude as gpage
 from hub.config import CHORE_VIEWS, FREQS, has_text, now, today
-from hub.dates import add_months, fmt_day, fmt_long_day, fmt_time, week_start
+from hub.dates import fmt_day, fmt_long_day, fmt_time, week_start
 from hub.holidays import holidays_between
 
 APPT_CAP = 8   # items shown on Today; the rest are a tap away
@@ -258,8 +259,9 @@ def trivia_section(tv: dict) -> None:
 
 
 def extras_card() -> None:
-    g = {k: extras.get_extra(k) for k in ("trivia", "quote", "history", "animal", "art", "recipe", "joke", "dinner")}
-    if not any(g.values()):
+    g = {k: extras.get_extra(k) for k in ("trivia", "quote", "history", "animal", "art", "space", "recipe", "dinner")}
+    nw = news.get_news()
+    if not any(g.values()) and not (nw and nw.get("items")):
         return
     with ui.card("Today's extras", "appt", "⭐"):
         if g["trivia"]:
@@ -272,6 +274,14 @@ def extras_card() -> None:
                                + (f'<div class="small" style="font-weight:600">— {esc(qt["author"])}</div>' if qt.get("author") else "")
                                + '<div class="small sh-muted">Inspirational quotes provided by <a href="https://zenquotes.io/" '
                                  'target="_blank" rel="noopener">ZenQuotes API</a></div>'))
+        if nw and nw.get("items"):
+            at = now()
+            rows = "".join(
+                f'<div class="sh-extra-text"><a href="{esc(it["url"])}" target="_blank" rel="noopener">{esc(it["title"])}</a>'
+                f' <span class="small sh-muted">· {esc(it["source"])}'
+                + (f' · {esc(news.ago(it.get("published", ""), at))}' if news.ago(it.get("published", ""), at) else "")
+                + '</span></div>' for it in nw["items"])
+            parts.append(_item("bills", "📰", "Headlines", rows))
         if g["history"]:
             parts.append(_item("appt", "🏛️", "This day in history", "".join(
                 f'<div class="sh-extra-text"><strong>{esc(e["year"])}</strong> {esc(e["text"])}{_link(e.get("url"))}</div>'
@@ -307,6 +317,17 @@ def extras_card() -> None:
                                + (f'<div style="margin-top:.25rem">{esc(art["text"])}</div>' if has_text(art.get("text")) else "")
                                + f'<div class="small sh-muted"><a href="{esc(art["url"])}" target="_blank" rel="noopener">'
                                  'Art Institute of Chicago</a> · description CC BY</div></div></div>'))
+        sp = g["space"]
+        if sp:
+            parts.append(_item("appt", "🔭", "Space photo of the day",
+                               f'<div class="sh-art"><a href="{esc(sp["url"])}" target="_blank" rel="noopener"><img '
+                               f'src="{esc(sp["image"])}" alt="{esc(sp["title"])}" class="sh-art-img" loading="lazy"></a>'
+                               f'<div class="sh-extra-text"><div><strong>{esc(sp["title"])}</strong></div>'
+                               + (f'<div style="margin-top:.25rem">{esc(sp["text"])}</div>' if has_text(sp.get("text")) else "")
+                               + (f'<div class="small"><a href="{esc(sp["video"])}" target="_blank" rel="noopener">'
+                                  '▶ Watch today\'s video</a></div>' if has_text(sp.get("video")) else "")
+                               + f'<div class="small sh-muted">{esc(sp["credit"])} · <a href="{esc(sp["url"])}" '
+                                 'target="_blank" rel="noopener">NASA Astronomy Picture of the Day</a></div></div></div>'))
         rc = g["recipe"]
         if rc:
             parts.append(_item("meals", "🍽️", "Recipe of the day",
@@ -315,8 +336,6 @@ def extras_card() -> None:
                                f'</strong>' + (f'<div class="sh-muted">{esc(rc["meta"])}</div>' if has_text(rc.get("meta")) else "")
                                + f'<div>{len(rc.get("ingredients") or [])} ingredients · add it to the plan from Meals</div>'
                                  '<div class="small sh-muted">Recipe from TheMealDB</div></div></div>'))
-        if g["joke"]:
-            parts.append(_item("kids", "😄", "Kids' joke", f'<div class="sh-extra-text">{esc(g["joke"]["text"])}</div>'))
         if g["dinner"]:
             parts.append(_item("meals", "💬", "Dinner question", f'<div class="sh-extra-text">{esc(g["dinner"]["text"])}</div>'))
         ls = learn.saved_day("adult", today())
@@ -334,7 +353,7 @@ def extras_card() -> None:
                 ui.link("meals", "Recipe of the day on Meals", icon=":material/restaurant:")
 
 
-# ---- Banners: plan next week (Sunday 1-10 pm), journal prompt, a year ago ---------------------------
+# ---- Banners: plan next week (Sunday 1-10 pm) ----------------------------------------------------
 def banners() -> None:
     if weekmod.show_week_banner():
         ws = week_start(today()) + timedelta(days=7)
@@ -348,28 +367,63 @@ def banners() -> None:
             if c2.button("Week planned", key="banner_planned"):
                 ui.try_db(db.set_setting, "Marked as planned", weekmod.week_planned_key(ws), "yes")
                 st.rerun()
-    uid = ui.user()["user_id"]
-    ya = db.one("""select entry_date, prompt, body from journal_entries
-                   where user_id = $1::uuid and entry_date = $2::date""", uid, add_months(today(), -12))
-    if ya:
-        body = ya["body"] or ""
-        c1, c2 = st.columns([5, 1], vertical_alignment="center")
-        c1.html(f'<div class="sh-nudge is-year">{ui.chip("notes", "⏳")}<div><strong>A year ago today you wrote</strong>'
-                f'<div>{esc(body[:160])}{"…" if len(body) > 160 else ""}</div></div></div>')
-        with c2:
-            ui.go_button("journal", "Read", "year_read")
-    if not journal.journal_get(uid, today()):
-        try:
-            prompt = journal.journal_prompt(uid, today())
-        except Exception as e:  # noqa: BLE001
-            print("[journal]", e)
-            prompt = journal.journal_fallback_prompt(today())
-        label = "This week's reflection" if journal.is_reflection_day(today()) else "Journal/reflection"
-        c1, c2 = st.columns([5, 1], vertical_alignment="center")
-        c1.html(f'<div class="sh-nudge">{ui.chip("notes", "📓")}<div><div class="small sh-muted">{label}</div>'
-                f'<div class="sh-nudge-prompt">{esc(prompt)}</div></div></div>')
-        with c2:
-            ui.go_button("journal", "Write", "journal_write", primary=True)
+
+
+@st.dialog("Countdown")
+def countdown_dialog(cid=None) -> None:
+    r = db.one("select * from countdowns where id = $1", int(cid)) if cid else None
+    k = f"cd_{cid or 'new'}"
+    title = st.text_input("What are you counting down to?", value=(r or {}).get("title", ""), key=f"{k}_title",
+                          max_chars=80, placeholder="e.g. Disney trip")
+    c1, c2 = st.columns([2, 1])
+    when = c1.date_input("Date", value=(r or {}).get("event_date") or today() + timedelta(days=30),
+                         min_value=today() if not r else None, key=f"{k}_date", format="MM/DD/YYYY")
+    emojis = countdown.COUNTDOWN_EMOJI
+    em = c2.selectbox("Icon", emojis, index=emojis.index(r["emoji"]) if r and r["emoji"] in emojis else 0, key=f"{k}_emoji")
+    if st.button("Save", type="primary", key=f"{k}_save"):
+        if not title.strip():
+            st.warning("Give it a name.")
+        elif ui.try_db(countdown.save, "Saved", cid, title, when, em, ui.user()["display_name"]):
+            st.rerun()
+
+
+def countdown_card() -> None:
+    items = countdown.upcoming(today())
+    with ui.card("Countdown", "kids", "⏳"):
+        if items:
+            st.html("".join(
+                f'<div class="sh-count"><div class="sh-count-n">{esc(countdown.days_label(r["days"]))}</div>'
+                f'<div><div class="sh-count-t">{esc(r["emoji"])} {esc(r["title"])}</div>'
+                f'<div class="small sh-muted">{esc(fmt_long_day(r["event_date"]))}</div></div></div>' for r in items))
+        else:
+            ui.empty("Nothing to count down to yet. Add a trip, a party or a big day.")
+        c1, c2 = st.columns(2)
+        if c1.button("Add", key="cd_add", icon=":material/add:", use_container_width=True):
+            countdown_dialog(None)
+        with c2.popover("Manage", icon=":material/list:", use_container_width=True):
+            rows = countdown.all_items()
+            if not rows:
+                st.caption("No countdowns yet.")
+            for r in rows:
+                past = r["event_date"] < today()
+                a, b, c = st.columns([5, 1, 1], vertical_alignment="center")
+                a.markdown(f"{r['emoji']} **{r['title']}**  \n" + (":gray[" if past else "")
+                           + f"{fmt_day(r['event_date'])}{' (past)' if past else ''}" + ("]" if past else ""))
+                if b.button("", key=f"cd_edit_{r['id']}", icon=":material/edit:"):
+                    countdown_dialog(r["id"])
+                with c:
+                    ui.confirm_delete(":material/delete:", f"cd_del_{r['id']}", "Delete this countdown?",
+                                      countdown.delete, r["id"])
+
+
+def gratitude_card() -> None:
+    with ui.card("Gratitude jar", "notes", "🫙"):
+        gpage.today_box("today")
+        pick = gratitude.from_the_jar(today())
+        if pick:
+            st.caption("From the jar")
+            st.html(gpage.note_html(pick))
+        ui.link("gratitude", "Open the jar", icon=":material/favorite:")
 
 
 # ---- Priority cards ---------------------------------------------------------------------------------
@@ -491,6 +545,8 @@ def page() -> None:
     verse_card()
     extras_card()
     banners()
+    countdown_card()
+    gratitude_card()
     rows.duty_dialogs()
     # Priority order (phones stack these in this order): appointments, meals, notes, kids, chores,
     # workouts, bills.

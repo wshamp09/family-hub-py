@@ -56,6 +56,8 @@ def page() -> None:
         hol = [h for h in (w["holidays"] or []) if h["date"] == day]
         chips = "".join(f'<span class="sh-holiday-chip">⭐ {esc(h["name"])}'
                         + ('<span class="sh-holiday-off">Day off</span>' if h["day_off"] else "") + "</span>" for h in hol)
+        chips += "".join(f'<span class="sh-holiday-chip sh-count-chip">{esc(c["emoji"])} {esc(c["title"])}</span>'
+                         for c in (w.get("countdowns") or []) if c["event_date"] == day)
         lines = []
         dinner = [m for m in w["meals"] if m["plan_date"] == day and m["slot"] == "Dinner"]
         lines.append("🍽️ " + (", ".join(esc(m["meal_name"]) for m in dinner) if dinner

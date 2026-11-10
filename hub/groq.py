@@ -1,5 +1,5 @@
 """AI through the Groq API (OpenAI-compatible chat endpoint): meal ideas, recipes, workouts,
-Ask AI replies, journal prompts and more."""
+Ask AI replies, lessons and more."""
 from __future__ import annotations
 
 import json

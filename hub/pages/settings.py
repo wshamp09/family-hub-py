@@ -80,7 +80,7 @@ def people_card() -> None:
 
 def prefs_cards() -> None:
     with ui.card("Kids' names"):
-        st.caption("Used in journal prompts and dinner questions. Separate names with commas.")
+        st.caption("Used in dinner questions. Separate names with commas.")
         k = st.text_input("Kids", value=db.get_setting("kids_names", ""), placeholder="e.g. Alan, Betty", key="set_kids",
                           label_visibility="collapsed")
         if st.button("Save", key="set_kids_save"):

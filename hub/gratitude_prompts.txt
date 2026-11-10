@@ -1,0 +1,393 @@
+# Gratitude jar prompts: one for each date of the year, in order (January 1 first; February has 29, and
+# the 29th is only used in leap years). Lines starting with # are notes and are skipped.
+# Edit any line to change that date's prompt. check_setup.py checks there are 366, all different.
+
+# January (fresh starts)
+What are you grateful for as this new year begins?
+What's one thing from last year you're glad you got to experience?
+What's a fresh start you're thankful for right now?
+Who made the holidays special this year?
+What's a habit you're grateful to have?
+What's something simple that brought you joy today?
+What's a cozy thing you're thankful for on a winter day?
+What's a lesson from last year you're grateful for?
+Who do you want to thank for something they did recently?
+What's something about your morning you appreciate?
+What's a skill you're glad you have?
+What part of your home feels most peaceful?
+What's a goal you're excited about?
+What's a moment today when you felt rested?
+What's something warm you're thankful for today?
+Who is someone you're glad is in your life this year?
+What's a small win from this week?
+What made you laugh out loud recently?
+What's a kindness you can be thankful for today?
+What's a food that makes winter better?
+What's something you're grateful your body did today?
+What's a book, show or song that lifted you up lately?
+What's one thing that's easier now than it was a year ago?
+What's a quiet moment you enjoyed this week?
+What's something the kids taught you lately?
+What's a place nearby you're glad to have?
+What's something you're looking forward to this month?
+What's a conversation you're grateful for?
+What's a chore you're glad is done?
+What's one thing you'd like to thank yourself for?
+What's the best part of this January?
+
+# February (love and people)
+Who do you love spending time with most?
+What's something your partner did that you appreciated this week?
+What's a favorite memory of the two of you?
+What's something about the kids that warms your heart?
+Who made you feel loved recently?
+What's a little thing someone does that you never want to take for granted?
+What's a family tradition you're thankful for?
+What's a friendship you're grateful for?
+What's a sweet moment from today?
+Who taught you something important about love?
+What's a way someone showed patience with you?
+What's something you love about your family's routine?
+What's a hug, word or smile you remember from this week?
+What do you appreciate most about your partner?
+Who in your extended family are you grateful for?
+What's a moment you felt truly understood?
+What's a way your home feels full of love?
+What's a gift someone gave you that you still treasure?
+Who checked in on you recently?
+What's something you love about being a parent?
+What's a funny thing the kids said this week?
+What's a neighbor or friend you're thankful for?
+What's a time someone forgave you?
+What's a love song or story that means something to you?
+What's a way you were cared for when you were little?
+Who makes ordinary days better?
+What's something you're grateful to share with your family?
+What's a moment this month you'd like to remember?
+What's a bonus day you'd fill with gratitude?
+
+# March (spring and growth)
+What's a sign of spring you noticed?
+What's something growing in your life right now?
+What's a way you've grown this year?
+What's something blooming that made you smile?
+What's a fresh idea you're excited about?
+What's an outdoor moment you enjoyed this week?
+What's a challenge you're grateful you got through?
+What's something new you tried lately?
+What's a sound of spring you love?
+What's a reason to be hopeful today?
+What's something the kids are learning that you love watching?
+What's a longer day good for?
+What's a plant, tree or flower you love?
+What's a lesson you learned the hard way and are grateful for?
+What's a small change that made a big difference?
+What's a walk or drive you enjoyed?
+What's something you're proud the kids did?
+What's a fresh food you're enjoying this season?
+What's a way you took care of yourself this week?
+What's something you're grateful to be able to see?
+What's a spring cleaning win?
+What's a person who helps you grow?
+What's something you've started that you're glad about?
+What's a morning you enjoyed recently?
+What's a breeze, a sunset or a sky you noticed?
+What's an encouraging word you received?
+What's a gift of time you were given?
+What's something you're grateful to hear?
+What's a reason to celebrate this week?
+What's something about this season you'd miss?
+What's one thing you're thankful for as March ends?
+
+# April (renewal and joy)
+What's something that made today feel fresh?
+What's a joke or funny moment from this week?
+What's a rainy-day comfort you're grateful for?
+What's something you're glad you said yes to?
+What's something you're glad you said no to?
+What's a meal you enjoyed with family?
+What's a reason today was better than expected?
+What's a favorite spot in the yard or park?
+What's something about the kids' laughter you love?
+What's a moment of peace from this week?
+What's a way your faith or values guided you?
+What's a song you enjoyed today?
+What's a gift from nature you noticed?
+What's a time someone made you feel included?
+What's something you're grateful to have learned as a child?
+What's a part of your day you look forward to?
+What's something you can do now that you couldn't before?
+What's a memory with your parents you're thankful for?
+What's a kindness you saw a stranger do?
+What's something your home gives you every day?
+What's a reason to slow down and enjoy this week?
+What's a way the earth takes care of us?
+What's a picnic, porch or patio moment you enjoyed?
+What's a bit of good news you heard lately?
+What's a hobby you're grateful for?
+What's a time you felt brave?
+What's a teacher or mentor you're grateful for?
+What's an everyday convenience you're thankful for?
+What's a reason to be proud of your family?
+What's something April gave you?
+
+# May (family and outdoors)
+What's a favorite outdoor activity right now?
+What's something about your mom or a mother figure you're grateful for?
+What's a sunny moment from today?
+What's a family outing you'd like to remember?
+What's something the kids made or built that delighted you?
+What's a summer plan you're looking forward to?
+What's a way you've been supported as a parent?
+What's a lesson your parents taught you that you use?
+What's a meal from the grill or kitchen you loved?
+What's a song that reminds you of family?
+What's something that made you feel young?
+What's a kind word you can pass on?
+What's a part of your neighborhood you love?
+What's a reason today felt easy?
+What's an animal you enjoyed seeing lately?
+What's a quiet evening you enjoyed?
+What's a celebration you're thankful for?
+What's something you love about warm weather?
+What's a moment of teamwork at home?
+What's a way the kids surprised you this week?
+What's a talent someone close to you has?
+What's a time you felt at peace outdoors?
+What's something you're glad is behind you?
+What's a person who serves the community you're grateful for?
+What's a way you can rest this weekend?
+What's a freedom you're grateful for?
+What's a memory of someone you miss that makes you smile?
+What's a game the family loves to play?
+What's a favorite smell of late spring?
+What's something you'd tell a younger you to be grateful for?
+What's one thing that made May special?
+
+# June (summer and dads)
+What's a favorite thing about summer?
+What's a beach, pool or splash moment you enjoyed?
+What's something about your dad or a father figure you're grateful for?
+What's a long evening good for?
+What's a cool drink, treat or shady spot you're thankful for?
+What's a summer memory from your childhood?
+What's something the kids did outside that made you smile?
+What's a trip or day out you're grateful for?
+What's a way you've slowed down lately?
+What's something you love about the ocean?
+What's a storm you're glad passed by safely?
+What's a way you were helped this week?
+What's a favorite summer meal?
+What's a time you laughed with friends recently?
+What's a lesson from your father or grandfather?
+What's something you love about your town?
+What's a sunrise or sunset you remember?
+What's a small adventure you had lately?
+What's a way you've been patient with yourself?
+What's something you're grateful for at the end of the school year?
+What's the longest day of the year good for?
+What's a book or story you enjoyed this summer?
+What's a shared family joke?
+What's an act of service someone did for you?
+What's a reason to be thankful for air conditioning today?
+What's a moment of wonder you had recently?
+What's something you're grateful to be able to do with your hands?
+What's a memory from this week you'd keep in the jar?
+What's a gift of good weather you enjoyed?
+What's one thing you're thankful for halfway through the year?
+
+# July (freedom and fun)
+What's a freedom you're thankful for today?
+What's a celebration you enjoyed with family?
+What's a summer sound you love?
+What's a way your community comes together?
+What's a fireworks, parade or festival memory?
+What's a lazy day pleasure you're grateful for?
+What's a summer fruit you're enjoying?
+What's a moment of play from today?
+What's something the kids are excited about?
+What's a way you've been generous lately?
+What's a person who makes summer more fun?
+What's a favorite family photo and why?
+What's a bit of shade, a breeze or a cool room you were glad for?
+What's something you learned on a trip?
+What's a craft, project or build you enjoyed?
+What's a time you felt proud of your family?
+What's a favorite water activity?
+What's a kindness from a neighbor?
+What's something you're grateful to have time for in summer?
+What's a reason today was a good day?
+What's a memory with a sibling or cousin you treasure?
+What's a lesson from a mistake you're glad you made?
+What's an evening walk or drive you enjoyed?
+What's something in the sky you noticed today?
+What's a song that sounds like summer?
+What's a meal someone made for you?
+What's a way your partner made life easier this week?
+What's a little luxury you're grateful for?
+What's something that made the kids giggle?
+What's a summer tradition you love?
+What's one thing July gave you?
+
+# August (back to school and routines)
+What's a summer moment you'll miss?
+What's a routine you're glad to get back to?
+What's a teacher or caregiver you're thankful for?
+What's something the kids are looking forward to this year?
+What's a school memory of your own you treasure?
+What's a new thing you're ready to learn?
+What's a way you prepared well this week?
+What's a lunch, snack or treat that makes the day better?
+What's a friend who makes life easier?
+What's something you're grateful the kids get to experience?
+What's a hot day comfort you're thankful for?
+What's a way you made someone's day better?
+What's a skill the kids picked up this summer?
+What's a car ride conversation you enjoyed?
+What's something you organized that feels good?
+What's a book or toy the kids love right now?
+What's a moment you felt calm in a busy week?
+What's a family member who helps with the kids?
+What's a fresh start you can make this week?
+What's a reason to celebrate a small step?
+What's a good night's sleep worth to you today?
+What's a tradition you'd like to start this school year?
+What's a time someone believed in you?
+What's an afternoon storm you watched from inside?
+What's a favorite after-school or after-work ritual?
+What's something you're grateful for in your work?
+What's a moment you felt seen as a parent?
+What's a cool morning you enjoyed?
+What's a summer lesson you'll carry forward?
+What's something that went smoothly today?
+What's one thing you're thankful for as summer winds down?
+
+# September (work, harvest and change)
+What's something about your work you appreciate?
+What's a co-worker or helper you're grateful for?
+What's a sign of a new season you noticed?
+What's a harvest, market or garden treat you enjoyed?
+What's a way your family works as a team?
+What's a lesson from this year so far?
+What's a moment of quiet in a busy day?
+What's a person who keeps your household running?
+What's a skill you're proud of?
+What's a way you've been resilient?
+What's a memory of someone you've lost that you're grateful for?
+What's a way you can serve someone this week?
+What's a meal that feels like home?
+What's a bit of patience you showed today?
+What's something the kids drew, sang or said that you love?
+What's a change you're grateful for?
+What's a game day, show or event you enjoyed?
+What's a moment with your partner you treasure from this week?
+What's a cooler evening good for?
+What's a reason to be thankful for your health today?
+What's a story from your family's past you're grateful to know?
+What's a time you were surprised by kindness?
+What's an ordinary moment that felt special?
+What's something you're grateful you don't have to worry about?
+What's a favorite fall flavor?
+What's a way you rested this weekend?
+What's a goal you made progress on?
+What's a gift of encouragement you received?
+What's a calm moment you can create tomorrow?
+What's one thing September gave you?
+
+# October (fall and coziness)
+What's something cozy you're grateful for?
+What's a fall activity you're looking forward to?
+What's a favorite costume or dress-up memory?
+What's a change in the weather you're enjoying?
+What's a pumpkin, apple or fall treat you love?
+What's a way the kids' imagination delighted you?
+What's a comfortable place to sit and think?
+What's a scary thing you're grateful you faced?
+What's a family movie night favorite?
+What's something you love about evenings at home?
+What's a craft or decoration you enjoyed making?
+What's a time you felt safe and warm?
+What's a friend you'd like to thank?
+What's a walk among trees or by the water you enjoyed?
+What's a habit that's serving you well?
+What's a moment of laughter at the dinner table?
+What's a favorite fall smell?
+What's a way you've made your home feel welcoming?
+What's a sweet treat you're thankful for today?
+What's something about the kids' personalities you love?
+What's a time someone made you feel at home?
+What's a soup, stew or warm drink you enjoyed?
+What's a bit of nature you saw today?
+What's a memory from a past fall you treasure?
+What's a lesson from a hard day you're grateful for?
+What's a game or puzzle you enjoyed?
+What's a neighbor or community event you're thankful for?
+What's a reason to slow down this week?
+What's an evening routine you love?
+What's a fun surprise from this week?
+What's one thing October gave you?
+
+# November (thanks)
+What are you most thankful for this month?
+What's a person who shaped who you are?
+What's a meal you're grateful to share?
+What's a blessing you sometimes forget to count?
+What's something you're thankful for about your home?
+What's a family member you're grateful for today?
+What's a gift of time someone gave you?
+What's a skill or job someone does that you rely on?
+What's a lesson from your grandparents?
+What's a way you've been provided for?
+What's a moment with the kids you're thankful for?
+What's a service member or first responder you're grateful for?
+What's a time someone was generous to you?
+What's a friendship that has lasted?
+What's a comfort food you're thankful for?
+What's a way you can say thank you this week?
+What's something you're grateful for about your health?
+What's a hard season you're thankful you came through?
+What's a reason to be grateful for your work?
+What's a simple pleasure you enjoyed today?
+What's a teacher, coach or leader you'd thank?
+What's a holiday tradition you're grateful for?
+What's a time you felt surrounded by people who care?
+What's something you're thankful for about your partner?
+What's a family recipe you treasure?
+What's a gift you can give someone this season?
+What's a moment from today you're thankful for?
+What's a way your faith or values give you hope?
+What's something you're grateful the kids have?
+What's one thing you're thankful for as November ends?
+
+# December (wonder and celebration)
+What's a holiday moment you're looking forward to?
+What's a light, decoration or display that made you smile?
+What's a gift that meant a lot to you?
+What's a way you can bring joy to someone this month?
+What's a favorite holiday song?
+What's a holiday memory from your childhood?
+What's something about the kids' excitement you love?
+What's a cozy night in you enjoyed?
+What's a giving moment you witnessed?
+What's a tradition you're grateful to pass on?
+What's a holiday treat you love?
+What's a person you're thankful to celebrate with?
+What's a card, call or message that touched you?
+What's a moment of wonder this season?
+What's something you're grateful for in the quiet of winter?
+What's a way someone made the season easier for you?
+What's a favorite holiday movie or story?
+What's a gift that didn't cost anything?
+What's a reason to rest this week?
+What's something you're grateful for about this past year?
+What's the shortest day of the year a reminder of?
+What's a family moment you'll remember this holiday?
+What's a kindness you noticed from a stranger this season?
+What's a quiet night you're grateful for?
+What's the best gift of this season so far?
+What's a moment from today you'd keep forever?
+What's a way the kids grew this year?
+What's a memory with your partner from this year you treasure?
+What's something you're proud of from this year?
+What's a hope you're grateful to carry into the new year?
+What's one thing you're thankful for as the year ends?

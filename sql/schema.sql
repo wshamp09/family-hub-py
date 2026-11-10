@@ -259,7 +259,7 @@ create table if not exists chat_messages (
 );
 
 -- -------------------------------------------------- Today's extras ----
--- One saved item per day and kind (history, joke, dinner, animal, recipe, lessons...), shared by everyone.
+-- One saved item per day and kind (history, dinner, animal, recipe, lessons...), shared by everyone.
 create table if not exists daily_extras (
   extra_date  date not null,
   kind        text not null,
@@ -313,29 +313,36 @@ create table if not exists photos (
 create index if not exists photos_week_idx on photos (week_start);
 create unique index if not exists photos_one_featured on photos (week_start) where is_featured;
 
--- ------------------------------------------------- Journal/reflection ----
--- Private to each login (filtered by user_id in the app). One entry per person per day.
-create table if not exists journal_entries (
-  id          bigint generated always as identity primary key,
-  user_id     uuid not null,
-  entry_date  date not null,
-  prompt      text,
-  body        text not null,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now(),
-  unique (user_id, entry_date)
+-- ------------------------------------------------------ Gratitude jar ----
+-- Shared with the family. One note per person per day (saving again the same day updates it).
+create table if not exists gratitude (
+  id           bigint generated always as identity primary key,
+  entry_date   date not null,
+  user_id      uuid not null,
+  author_name  text,
+  prompt       text,
+  body         text not null,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  unique (entry_date, user_id)
 );
 
--- The day's AI-written prompt for each person (so it stays put until "New prompt").
-create table if not exists journal_prompts (
-  user_id      uuid not null,
-  prompt_date  date not null,
-  prompt       text not null,
-  primary key (user_id, prompt_date)
+-- --------------------------------------------------------- Countdowns ----
+-- Events added by hand and counted down on Today (and tagged in Week ahead).
+create table if not exists countdowns (
+  id          bigint generated always as identity primary key,
+  title       text not null,
+  event_date  date not null,
+  emoji       text not null default '🎉',
+  created_by  text,
+  created_at  timestamptz not null default now()
 );
 
 -- --------------------------------------------- Upgrades to earlier tables ----
 -- (No effect on a fresh install; brings an existing database up to date.)
+-- Tables the app no longer uses (removed with their data).
+drop table if exists journal_entries;
+drop table if exists journal_prompts;
 alter table chores    add column if not exists optional boolean not null default false;
 alter table chores    add column if not exists due_day int check (due_day between 1 and 31);
 alter table chores    add column if not exists due_month int check (due_month between 1 and 12);
@@ -407,7 +414,7 @@ create index if not exists idx_workouts_date      on workouts (workout_date);
 create index if not exists idx_notes_parent       on notes (parent_id);
 create index if not exists idx_chat_threads_user  on chat_threads (user_id, updated_at desc);
 create index if not exists idx_chat_messages      on chat_messages (thread_id, id);
-create index if not exists idx_journal_user_date  on journal_entries (user_id, entry_date desc);
+create index if not exists idx_gratitude_date      on gratitude (entry_date desc);
 
 -- ------------------------------------------------------------- Seed data ----
 -- Starter family members, only on a brand-new database (rename them in Settings).
@@ -445,9 +452,9 @@ alter table daily_verse        enable row level security;
 alter table saved_verses       enable row level security;
 alter table chat_threads       enable row level security;
 alter table chat_messages      enable row level security;
-alter table journal_entries    enable row level security;
+alter table gratitude          enable row level security;
+alter table countdowns         enable row level security;
 alter table daily_extras       enable row level security;
-alter table journal_prompts    enable row level security;
 alter table trivia_answers     enable row level security;
 alter table learn_log          enable row level security;
 alter table photos             enable row level security;

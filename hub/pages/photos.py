@@ -64,13 +64,16 @@ def upload_card() -> None:
         k = st.session_state.get("photo_up_key", 0)
         files = st.file_uploader("Choose photos", type=["jpg", "jpeg", "png", "heic", "heif", "webp"],
                                  accept_multiple_files=True, key=f"photo_up_{k}", label_visibility="collapsed")
+        cap = st.text_input("Caption (optional)", key=f"photo_cap_{k}", max_chars=photos.PHOTO_CAPTION_MAX,
+                            placeholder="e.g. First trip to the beach",
+                            help="Saved on every photo you add this time. Change any of them later with Open.")
         if files and st.button(f"Add {len(files)} photo{'s' if len(files) != 1 else ''}", type="primary", key="photo_add"):
             added, failed = [], []
             bar = st.progress(0.0, text="Adding photos…")
             for i, f in enumerate(files, 1):
                 print(f"[photos] adding {i} of {len(files)}: {f.name}")
                 try:
-                    added.append(photos.photo_add(f.getvalue(), ui.user()))
+                    added.append(photos.photo_add(f.getvalue(), ui.user(), caption=cap))
                 except Exception as e:  # noqa: BLE001
                     print(f"[photos] {f.name}: {e}")
                     failed.append(f.name)
@@ -87,7 +90,7 @@ def upload_card() -> None:
                 st.rerun()
         st.caption("Each photo goes in the week it was taken (from the camera's date, or today if there isn't one). "
                    "The first one in a week becomes the photo of the week; tap Open on any photo to change that, "
-                   "add a caption or fix the date.")
+                   "edit its caption or fix the date.")
 
 
 def ready_banner(months: list[dict]) -> None:

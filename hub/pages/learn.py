@@ -1,4 +1,4 @@
-"""Learn: today's short lessons (grown-ups and kids), the word of the day, and a knowledge check."""
+"""Learn: today's short lessons, the word of the day, and a knowledge check."""
 from __future__ import annotations
 
 import streamlit as st
@@ -77,14 +77,9 @@ def quiz_section(day_data: dict, track: str, log: dict, uid: str) -> None:
 
 def page() -> None:
     uid = ui.user()["user_id"]
-    c1, c2 = st.columns([3, 2], vertical_alignment="center")
-    tlabel = c1.segmented_control("Track", list(learn.LEARN_TRACKS.values()), default="Grown-ups",
-                                  key="learn_track", label_visibility="collapsed") or "Grown-ups"
-    track = next(k for k, v in learn.LEARN_TRACKS.items() if v == tlabel)
+    track = "adult"
     n = learn.streak(uid, today())
-    c2.markdown(f"🔥 **{n}-day streak**" if n > 1 else ("🔥 **Started today**" if n == 1 else "Read one to start a streak"))
-    if track == "kids":
-        st.caption("Short read-aloud lessons, with something to try together at the end.")
+    st.markdown(f"🔥 **{n}-day streak**" if n > 1 else ("🔥 **Started today**" if n == 1 else "Read one to start a streak"))
 
     day = learn.saved_day(track, today())
     if not day:
@@ -103,10 +98,9 @@ def page() -> None:
     for i, l in enumerate(lessons):
         with cols[i % 2]:
             lesson_card(l, track, l["subject"] in log, uid)
-    if track == "adult":
-        wd = extras.get_extra("word")
-        if wd:
-            with cols[len(lessons) % 2]:
-                with ui.card("Vocabulary", "bills", "📖"):
-                    st.html(word_html(wd))
+    wd = extras.get_extra("word")
+    if wd:
+        with cols[len(lessons) % 2]:
+            with ui.card("Vocabulary", "bills", "📖"):
+                st.html(word_html(wd))
     quiz_section(day, track, log, uid)

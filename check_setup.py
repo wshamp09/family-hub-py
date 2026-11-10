@@ -82,9 +82,7 @@ def _():
 @step("Load app code (hub/ folder)")
 def _():
     import importlib
-    mods = ["config", "db", "auth", "dates", "data", "groq", "ics", "budget", "starters", "grocery", "verses",
-            "week", "sitter", "weather", "journal", "extras", "trivia", "traffic", "seasonal", "photos", "holidays",
-            "ui", "rows", "forms"]
+    mods = sorted(p.stem for p in (HERE / "hub").glob("*.py") if p.stem != "__init__")
     for m in mods:
         importlib.import_module(f"hub.{m}")
     pages = sorted(p.stem for p in (HERE / "hub" / "pages").glob("*.py") if p.stem != "__init__")
@@ -192,14 +190,21 @@ def _():
     return f"{len(need)} files found"
 
 
-@step("Journal/reflection prompts")
+@step("Gratitude jar: a prompt for every date, and the note from the jar")
 def _():
-    from hub.journal import JOURNAL_FALLBACK_SUNDAY, is_reflection_day, join_names, journal_fallback_prompt
-    check(join_names(["Alan", "Betty"]) == "Alan and Betty" and join_names(["A", "B", "C"]) == "A, B and C",
-          "name joining is off")
-    check(is_reflection_day(date(2026, 11, 8)) and not is_reflection_day(date(2026, 11, 7)), "Sunday check is off")
-    check(journal_fallback_prompt(date(2026, 11, 8)) == JOURNAL_FALLBACK_SUNDAY, "Sunday fallback is off")
-    return "ok"
+    from hub.gratitude import GRATITUDE_PROMPTS, pick_index, prompt_for, prompt_index
+    check(len(GRATITUDE_PROMPTS) == 366, f"gratitude_prompts.txt should have 366 prompts, has {len(GRATITUDE_PROMPTS)}")
+    dup = sorted({p for p in GRATITUDE_PROMPTS if GRATITUDE_PROMPTS.count(p) > 1})
+    check(not dup, f"repeated prompts: {dup[:3]}")
+    leap = [prompt_for(date(2028, 1, 1) + timedelta(days=i)) for i in range(366)]
+    check(len(set(leap)) == 366, "a leap year should use all 366 prompts")
+    plain = [prompt_for(date(2027, 1, 1) + timedelta(days=i)) for i in range(365)]
+    check(len(set(plain)) == 365 and GRATITUDE_PROMPTS[59] not in plain, "February 29's prompt should only be used in leap years")
+    check(prompt_index(date(2027, 3, 1)) == prompt_index(date(2028, 3, 1)) == 60, "each date should keep its prompt every year")
+    check(prompt_for(date(2026, 12, 21)).startswith("What's the shortest day"), "prompts are out of date order")
+    check(pick_index(0, date(2026, 11, 10)) is None and all(0 <= pick_index(n, date(2026, 11, 10)) < n for n in (1, 2, 7, 365)),
+          "the note from the jar should always be one of the earlier notes")
+    return f"366 different prompts, one per date (Feb 29 in leap years only); note from the jar OK; today: {prompt_for(date.today())}"
 
 
 @step("Animal of the day checks")
@@ -258,8 +263,8 @@ def _():
 def _():
     from hub.learn import clean_quiz, learn_streak, reading_minutes, trim_article
     check(reading_minutes("word " * 200, "adult") == 1 and reading_minutes("word " * 201, "adult") == 2
-          and reading_minutes("word " * 360, "kids") == 3 and reading_minutes("", "adult") == 1,
-          "reading time is off (200 words a minute for grown-ups, 120 for kids, at least 1)")
+          and reading_minutes("word " * 401, "adult") == 3 and reading_minutes("", "adult") == 1,
+          "reading time is off (200 words a minute, at least 1)")
     art = "Intro para.\n\nMore text.\n\n== See also ==\nOther page\n\n== References ==\n1. x"
     check(trim_article(art) == "Intro para.\n\nMore text.", f"reference sections not dropped: {trim_article(art)!r}")
     check(trim_article("aaaa\nbbbb\ncccc", 11) == "aaaa\nbbbb", "article not cut at a whole line")
@@ -289,6 +294,56 @@ def _():
     check(got == cases, f"wait times are off: {got}")
     check(rate_limit_wait("", "12") == 12.0, "Retry-After header not used")
     return "wait times from Groq's message (ms, s, minutes) and Retry-After OK"
+
+
+@step("Headlines: feed reading, 3 national + 2 local, refresh timing")
+def _():
+    from datetime import datetime, timezone
+    from hub.news import ago, is_stale, parse_feed, pick_headlines
+    rss = ('<rss><channel><item><title>A &amp; B</title><link>https://n/1</link>'
+           '<pubDate>Tue, 10 Nov 2026 15:00:00 GMT</pubDate></item><item><title>Two</title><link>https://n/2</link></item>'
+           '<item><title>No link</title></item><item><title>Three</title><link>https://n/3</link></item>'
+           '<item><title>Four</title><link>https://n/4</link></item></channel></rss>')
+    atom = ('<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Local one</title><link href="https://l/1"/></entry>'
+            '<entry><title>A &amp; B</title><link href="https://l/dup"/></entry><entry><title>Local two</title>'
+            '<link href="https://l/2"/></entry><entry><title>Local three</title><link href="https://l/3"/></entry></feed>')
+    n, l = parse_feed(rss, "NPR"), parse_feed(atom, "Jacksonville Today")
+    check([x["title"] for x in n] == ["A & B", "Two", "Three", "Four"], f"RSS reading is off: {n}")
+    check(l[0]["url"] == "https://l/1", "Atom links not read")
+    p = pick_headlines({"national": n, "local": l})
+    check([x["title"] for x in p] == ["A & B", "Two", "Three", "Local one", "Local two"],
+          f"should be 3 national + 2 local with no repeats: {[x['title'] for x in p]}")
+    at = datetime(2026, 11, 10, 17, 0, tzinfo=timezone.utc)
+    check(ago(n[0]["published"], at) == "2h ago" and ago("", at) == "", "'time ago' is off")
+    fresh = {"fetched_at": datetime(2026, 11, 10, 15, 30, tzinfo=timezone.utc).isoformat(), "items": [1]}
+    check(not is_stale(fresh, at) and is_stale(fresh, at.replace(hour=18)) and is_stale(None, at),
+          "headlines should refresh after 2 hours")
+    return "RSS and Atom, 3 + 2 without repeats, time ago, 2-hour refresh OK"
+
+
+@step("Space photo of the day tidy-up (NASA)")
+def _():
+    from hub.extras import apod_page, clean_apod
+    img = clean_apod({"title": "Pillars of Creation", "date": "2026-11-10", "media_type": "image",
+                      "url": "https://apod.nasa.gov/apod/image/2611/pillars.jpg", "copyright": "\nJane  Doe\n",
+                      "explanation": "One. Two! Three? Four."})
+    check(img["text"] == "One. Two! Three?" and img["credit"] == "© Jane Doe" and img["video"] == "",
+          f"image day is off: {img}")
+    check(img["url"] == "https://apod.nasa.gov/apod/ap261110.html", f"APOD page link is off: {img['url']}")
+    vid = clean_apod({"title": "Eclipse", "date": "2026-11-11", "media_type": "video",
+                      "url": "https://www.youtube.com/embed/x", "thumbnail_url": "https://img.youtube.com/x.jpg"})
+    check(vid["image"].endswith("x.jpg") and vid["video"].startswith("https://www.youtube") and vid["credit"] == "NASA",
+          f"video day is off: {vid}")
+    check(apod_page("") == "https://apod.nasa.gov/apod/", "missing date should link to APOD's home page")
+    return "image days, video days, credit and page link OK"
+
+
+@step("Countdown labels")
+def _():
+    from hub.countdown import COUNTDOWN_DAYS, COUNTDOWN_SHOW, days_label
+    check([days_label(n) for n in (0, 1, 2, 45)] == ["Today!", "Tomorrow", "2 days", "45 days"], "countdown labels are off")
+    check(COUNTDOWN_SHOW == 4 and COUNTDOWN_DAYS == 365, "Today should show the next 4 within a year")
+    return "Today!, Tomorrow, N days; next 4 within a year"
 
 
 @step("Trivia rules")
@@ -606,7 +661,7 @@ def _():
     need = ["people", "app_users", "household_settings", "chores", "chore_log", "meals_library", "meal_plan",
             "grocery_items", "childcare_duties", "bills", "bill_payments", "appointments", "contacts", "household_info",
             "income", "workouts", "notes", "daily_verse", "saved_verses", "chat_threads", "chat_messages",
-            "journal_entries", "journal_prompts", "daily_extras", "trivia_answers", "learn_log", "photos"]
+            "gratitude", "countdowns", "daily_extras", "trivia_answers", "learn_log", "photos"]
     miss = [n for n in need if n not in t]
     check(not miss, f"missing tables: {miss}: run sql/schema.sql")
     return f"{len(need)} tables found; {len(get_people())} family members"
@@ -640,16 +695,26 @@ def _():
     return f"{v['reference']} ({v['translation']}): {v['text'][:50]}…"
 
 
-@step("Today's extras sources (Wikipedia, iNaturalist, icanhazdadjoke, Open Trivia DB, ZenQuotes)", live=True)
+@step("Today's extras sources (Wikipedia, iNaturalist, Open Trivia DB, ZenQuotes)", live=True)
 def _():
     from hub.config import today
-    from hub.extras import fetch_animal, fetch_history, fetch_joke, fetch_quote
+    from hub.extras import fetch_animal, fetch_history, fetch_quote
     from hub.trivia import fetch_trivia
     d = today()
-    h, j, a, tv, qt = (fetch_history(d), fetch_joke(d), fetch_animal(d), fetch_trivia(d),
-                          fetch_quote(d))
-    return (f"{len(h)} history item(s); joke: {j['text'][:30]}…; animal: {a['name']} ({a['seen']}); "
+    h, a, tv, qt = fetch_history(d), fetch_animal(d), fetch_trivia(d), fetch_quote(d)
+    return (f"{len(h)} history item(s); animal: {a['name']} ({a['seen']}); "
             f"trivia: {tv['question'][:40]}…; quote by {qt['author']}")
+
+
+@step("Headline feeds (NPR, Jacksonville Today / News4JAX)", live=True)
+def _():
+    from hub.news import NEWS_FEEDS, fetch_group
+    out = []
+    for g in NEWS_FEEDS:
+        items = fetch_group(g)
+        check(items, f"no {g} headlines: none of its feeds could be read")
+        out.append(f"{g}: {items[0]['source']} ({len(items)}), e.g. {items[0]['title'][:40]}")
+    return "; ".join(out)
 
 
 @step("Word of the day source (merriam-webster.com)", live=True)
@@ -680,6 +745,15 @@ def _():
     nxt = [x for x in h if x["date"] >= today()][:3]
     return (f"art: {a['title']} ({a['artist'][:30]}), picture {len(src) * 3 // 4 // 1024} KB; holidays: {len(h)} in the feed, next: "
             + "; ".join(f"{x['name']} {x['date']:%b %d}{' (day off)' if x['day_off'] else ''}" for x in nxt))
+
+
+@step("Space photo of the day (api.nasa.gov)", live=True)
+def _():
+    from hub.config import cfg, today
+    from hub.extras import fetch_apod
+    a = fetch_apod(today())
+    key = "your NASA_API_KEY" if cfg("NASA_API_KEY", "") else "the shared DEMO_KEY (add NASA_API_KEY for a reliable limit)"
+    return f"{a['title']} ({a['date']}{', video' if a['video'] else ''}) using {key}"
 
 
 @step("Recipe of the day source (themealdb.com)", live=True)

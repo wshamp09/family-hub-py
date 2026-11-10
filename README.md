@@ -6,17 +6,17 @@ A family organizer built in Python with Streamlit, hosted on Streamlit Community
 
 | Page | What it does |
 |---|---|
-| Today | Daily dashboard. It opens with a greeting by name, today's holiday if there is one, and the weather: now, today's high and low, notes such as rain timing or heat, a 5-day forecast, and sunrise and sunset. On weekdays from 6:30 to 9:30 AM and 2:30 to 5:30 PM, the **school run** follows, with live traffic between home and school. Next come the verse of the day and **Today's extras**: trivia of the day, quote of the day, this day in history, the animal of the day, art of the day, the recipe of the day, a kids' joke, a dinner question and today's lessons from Learn. Then, on Sundays from 1 to 10 PM, a prompt to plan next week, followed by your journal prompt and anything you wrote a year ago today. Below that: appointments and reminders for the next 7 days (up to 8, overdue reminders first), today's meals, the latest notes, drop-offs and pick-ups, chores to do, workouts, and bills due in the next 7 days. You can tick things off right here. |
+| Today | Daily dashboard. It opens with a greeting by name, today's holiday if there is one, and the weather: now, today's high and low, notes such as rain timing or heat, a 5-day forecast, and sunrise and sunset. On weekdays from 6:30 to 9:30 AM and 2:30 to 5:30 PM, the **school run** follows, with live traffic between home and school. Next come the verse of the day and **Today's extras**: trivia of the day, quote of the day, today's headlines, this day in history, the animal of the day, art of the day, NASA's space photo of the day, the recipe of the day, a dinner question and today's lessons from Learn. Then, on Sundays from 1 to 10 PM, a prompt to plan next week, then the **Countdown** (the next 4 events you've added), followed by the **Gratitude jar**: today's prompt, your note and the family's, and one earlier note from the jar. Below that: appointments and reminders for the next 7 days (up to 8, overdue reminders first), today's meals, the latest notes, drop-offs and pick-ups, chores to do, workouts, and bills due in the next 7 days. You can tick things off right here. |
 | Calendar | Day, week and month views of appointments and reminders, kids' duties, meals, bills, monthly and yearly chores, workouts and holidays, with a layer toggle for each. |
 | Meals | A recipe of the day, AI meal ideas from Groq or a meal you name yourself (optionally built around what's in season), produce in season in Northeast Florida this month, a week plan (including leftovers), and a saved meal library. Ingredients go to the Grocery list. |
 | Notes | A shared sticky-note board. Pick a color for each note; pin, mark done, reply or delete. |
 | Grocery | The shared shopping list, with big checkboxes for use in the store. Matching items are combined (1 onion + 2 onions = 3 onion). |
 | Chores | The full household chore list (daily, weekly, monthly, quarterly and yearly), loaded automatically. Monthly chores have a day of the month and yearly chores a date. Tick each one off; ticks clear at the start of its next day, week, month, quarter or year. Add your own with **Add to list**. |
 | Appointments & reminders | Appointments and simple reminders, either of which can repeat weekly, monthly or yearly. Tick reminders when done; a repeating reminder moves to its next date. Export one item, or all upcoming, as an `.ics` file for Apple or Google Calendar (repeats included). |
-| Week ahead | One screen for a Monday–Sunday week: holidays, dinners, drop-offs and pick-ups, appointments and reminders, workouts and bills due. It lists what's still unplanned, and you can mark the week planned. |
+| Week ahead | One screen for a Monday–Sunday week: holidays, countdown events, dinners, drop-offs and pick-ups, appointments and reminders, workouts and bills due. It lists what's still unplanned, and you can mark the week planned. |
 | Kids | Drop-off and pick-up duties by week. Assign a family member or Other (with a name), tick when done, repeat weekly, or copy a whole week. |
-| Learn | Four short lessons a day for grown-ups and four for the kids (science, history, money, and health & how things work), each written from a real Wikipedia article, plus the word of the day and a daily knowledge check. Tracks a reading streak for each person. |
-| Journal/reflection | A private parent journal. AI writes a fresh prompt for you each day, often mentioning the kids, and Sundays get a deeper weekly reflection. You can ask for a new prompt or one on a theme. Past entries are searchable, and "On this day" shows earlier years. |
+| Learn | Four short lessons a day (science, history, money, and health & how things work), each written from a real Wikipedia article, plus the word of the day and a daily knowledge check. Tracks a reading streak for each person. |
+| Gratitude jar | One short note a day each, shared with the family, with a simple prompt of the day to follow or ignore. Shows a note from the jar each day (or shake it for another), and every note so far, searchable. |
 | Photos | A family photo timeline by week. Add as many photos as you like; one each week is the photo of the week. Browse by year and month, and make a monthly collage to save or print. |
 | Workouts | Generate a workout with AI or add one by hand, assign it to a person and a day, tick it when done. Shows workouts done this week and month for each person. |
 | Bills | This month's checklist of every expense marked **Track & remind**. Switch who pays for any month, edit that month's amount, and tick when paid. Autopay bills are never overdue; they mark themselves paid after the due day. |
@@ -25,7 +25,7 @@ A family organizer built in Python with Streamlit, hosted on Streamlit Community
 | Contacts & info | Tap-to-call contacts, plus household info such as door codes, the Wi-Fi password and insurance numbers. **Sitter sheet** makes a one-page PDF or image from the contacts and info you tick. |
 | Settings | Your name and password, family member names, kids' names, meal preferences for the AI, and the school run addresses. Admins can also add or remove logins and choose whether each one can see money and sensitive info. |
 
-**The menu.** A bar across the top holds **Today, Calendar, Meals, Notes** and **More**. **More** opens a list in this order: Grocery, Chores, Appointments & reminders, Week ahead, Kids, Learn, Journal/reflection, Photos, Workouts, Bills, Budget, Ask AI, Contacts & info and Settings, plus Sign out. On a narrow phone screen the bar folds into a menu button at the top. **Photos 🟠** in the menu means this week has no photo yet.
+**The menu.** A bar across the top holds **Today, Calendar, Meals, Notes** and **More**. **More** opens a list in this order: Grocery, Chores, Appointments & reminders, Week ahead, Kids, Learn, Gratitude jar, Photos, Workouts, Bills, Budget, Ask AI, Contacts & info and Settings, plus Sign out. On a narrow phone screen the bar folds into a menu button at the top. **Photos 🟠** in the menu means this week has no photo yet.
 
 ---
 
@@ -58,7 +58,9 @@ hub/                        App code
   budget.py                 Budget calculations
   groq.py                   AI requests (meal ideas, recipes, workouts, chat)
   extras.py, trivia.py      Today's extras and the trivia game
-  verses.py, journal.py     Verse of the day; journal prompts
+  verses.py, gratitude.py   Verse of the day; gratitude jar
+  countdown.py              Countdown events
+  gratitude_prompts.txt     The 366 gratitude prompts, one per date
   learn.py                  Daily lessons (Wikipedia + AI), knowledge check, streaks
   weather.py, traffic.py    Weather and moon; school run traffic
   seasonal.py, holidays.py  In season produce; holidays and church days
@@ -103,7 +105,7 @@ Open your project at [supabase.com/dashboard](https://supabase.com/dashboard), o
 
 The schema creates 27 tables, the private `photos` storage bucket and, on an empty database, two starter family members. It also turns on Row Level Security. With no policies defined, that blocks the public Supabase REST API from reaching your data; the app connects directly to the database instead.
 
-`sql/schema.sql` is safe to run again at any time. On a database that already has tables, it adds whatever is missing and brings existing tables up to date without touching your data.
+`sql/schema.sql` is safe to run again at any time. On a database that already has tables, it adds whatever is missing and brings existing tables up to date without touching your data. It also removes tables the app no longer uses, with their data: `journal_entries` and `journal_prompts`.
 
 ### 3. Copy the database connection details
 
@@ -145,6 +147,8 @@ Put both emails in `ADMIN_EMAILS` in step 7. That makes you both admins, so eith
 4. **Groq (AI):** create a key at [console.groq.com](https://console.groq.com) under **API Keys** → `GROQ_API_KEY`. `GROQ_MODEL` defaults to `openai/gpt-oss-120b`. Groq retires models from time to time. If the configured model stops working, the app asks Groq which models are live, switches to one automatically, and writes the model it chose to the app log. Copy that name into `GROQ_MODEL` to make it permanent.
 5. **School run traffic (TomTom):** sign in at [developer.tomtom.com](https://developer.tomtom.com), open **API Keys** (a default key is created with the account; it covers Routing and Search) and copy it → `TOMTOM_API_KEY`. The free tier is far more than the app needs (about 36 requests a weekday, plus one lookup when an address changes). Without a key, the rest of the app works and the school run line says the key is missing.
 
+6. **NASA space photo (optional):** get a free key at [api.nasa.gov](https://api.nasa.gov) (name and email; the key arrives straight away) → `NASA_API_KEY`. Without one, the app uses NASA's shared demo key, which allows only a few requests a day for everyone on the same server, so the photo may sometimes be missing.
+
 `secrets.toml` is listed in `.gitignore`, so it never goes to GitHub. Community Cloud gets the same values by pasting them into the app's **Secrets** box (step 11).
 
 ### 8. Install the Python packages
@@ -174,21 +178,24 @@ What it checks:
 - the app's rules, against known answers:
   - dates and calendar helpers, repeating appointments and reminders, chore due dates
   - the sitter sheet draws as a PDF and an image; fonts, logo, icons and theme are present
-  - journal prompts, animal of the day (species filter, daily pick, no repeats), recipe of the day, trivia rules
+  - gratitude jar prompts and the note from the jar, countdown labels, animal of the day (species filter, daily pick, no repeats), recipe of the day, trivia rules
   - weather notes and the moon phase
   - school run traffic rules, in season produce, word of the day parsing
   - daily learning: reading time, article trimming, knowledge-check questions and streaks
+  - headlines: reading news feeds, 3 national + 2 local without repeats, and the 2-hour refresh
   - photos: weeks, photo of the week and the collage layout
-  - holidays (Google feed and church days), art of the day, grocery combining
+  - holidays (Google feed and church days), art of the day, space photo of the day, grocery combining
   - the budget maths reproduces the household spreadsheet
   - keep me signed in (the device component and its rules)
 - live, each one a real request:
   - the database connection (session pooler) and that every table exists
   - Supabase Auth is reachable and public sign-ups are off
   - the Supabase secret key works
-  - bible-api.com; Wikipedia, iNaturalist, icanhazdadjoke, Open Trivia DB and ZenQuotes; Merriam-Webster
+  - bible-api.com; Wikipedia, iNaturalist, Open Trivia DB and ZenQuotes; Merriam-Webster
   - TheMealDB (recipe of the day)
-  - daily learning: builds a set of grown-up lessons from Wikipedia with Groq (nothing is saved)
+  - NASA's Astronomy Picture of the Day (says whether your own key or the shared demo key was used)
+  - the headline feeds (NPR, and Jacksonville Today or News4JAX)
+  - daily learning: builds a day's lessons from Wikipedia with Groq (nothing is saved)
   - the Art Institute of Chicago and Google's holiday calendar
   - Open-Meteo weather
   - the `photos` storage bucket (uploads, reads and deletes a test file)
@@ -393,8 +400,8 @@ It opens like an app and stays signed in (each visit renews it; 30 days without 
   - a chilly morning (45° or below)
 
 **Today's extras.** Each item is fetched once a day, saved, and shown to everyone. If a source is down, that line is skipped and tried again 30 minutes later.
+- **Headlines:** the top 3 national stories from NPR and the top 2 local stories from Jacksonville Today (WJCT's nonprofit newsroom), each with its outlet and how long ago it was posted. Tap a headline to read it on the outlet's site. Only headlines are shown, no AI summaries. They refresh every 2 hours and everyone sees the same set. If a feed can't be reached, the app tries a backup (NPR's general news feed, or News4JAX local news) and otherwise keeps the last headlines up.
 - **This day in history:** one or two events from Wikipedia's "On this day", with a link to read more.
-- **Kids' joke:** a clean dad joke from icanhazdadjoke.com.
 - **Dinner question:** a conversation starter written by AI for the family. It avoids the past three weeks' questions.
 - **Animal of the day (spotted near home):** a wild animal that someone photographed within about 25 miles of home in the last two weeks, from [iNaturalist](https://www.inaturalist.org) (free, no key). It shows the photo, the common and scientific names, what kind of animal it is and the day it was seen ("Bird spotted near home on Nov 5"), a short description, and a link to the sighting.
   - **Only confirmed sightings:** the iNaturalist community must have agreed on the species ("research grade"). Zoo and pet animals are left out.
@@ -402,6 +409,7 @@ It opens like an app and stays signed in (each visit renews it; 30 days without 
   - **Variety:** the same species isn't shown again within 60 days. If nothing new was seen in the last two weeks, it looks back 60 days.
   - **Home:** the location comes from `WEATHER_LAT` and `WEATHER_LON`. Exact spots aren't shown.
   - If the day's saved animal came from an older source (for example the R version of the app, which shares the database), it's replaced with an iNaturalist one.
+- **Space photo of the day:** NASA's Astronomy Picture of the Day: the picture, its title, a few sentences of NASA's explanation, and the photographer's credit. Tap the picture to open NASA's page for it. On days when it's a video, you see its preview with a **Watch today's video** link. Just after midnight, before NASA posts the new one, it shows the latest. On the rare days it's an interactive page rather than a picture, it's left out.
 - **Recipe of the day:** see **Meals** above.
 - **Art of the day:** a public-domain painting from the Art Institute of Chicago (free, no key): the image, title, year, artist and a few sentences from the museum's description, with a link to the museum page. Tap the picture to see it full size there. The museum's picture server only answers requests that come from its own website, so the app downloads each day's picture itself and shows its own copy (if that fails, the painting shows without its picture). The descriptions are licensed CC BY, so the museum is credited under each one.
 - **Trivia (Trivial Pursuit style):** one multiple-choice question a day from the Open Trivia Database (free, CC BY-SA 4.0). It's the same question for everyone, and each person answers once.
@@ -412,19 +420,18 @@ It opens like an app and stays signed in (each visit renews it; 30 days without 
 - **Quote of the day:** ZenQuotes' daily inspirational quote with its author. The free service requires the "Inspirational quotes provided by ZenQuotes API" credit, which is shown with it.
 
 **Learn.** Short lessons to read each day, under **More → Learn**.
-- **Two tracks:** **Grown-ups** (3–5 minute reads with a takeaway) and **Kids** (short read-aloud lessons for ages about 4 to 7, ending with something to try together). Switch with the buttons at the top.
-- **Four subjects a day in each track:** Science, History, Money, and Health & how things work. Each card shows a picture, the lesson as a question ("Why are stars different colors?"), a one-line hook and the reading time. Tap **Read** to open it and **✓ Done reading** when you're finished.
+- **Four subjects a day:** Science, History, Money, and Health & how things work. Each lesson is a 3–5 minute read ending with a takeaway. Each card shows a picture, the lesson as a question ("Why are stars different colors?"), a one-line hook and the reading time. Tap **Read** to open it and **✓ Done reading** when you're finished.
 - **Where lessons come from:** each day the AI picks one topic per subject, each tied to a real Wikipedia article. The app reads the article from Wikipedia, and the AI writes the lesson using only that article's text. Every lesson links to its article, so you can check it or read more. AI can still get things wrong, so treat the article as the final word.
-- **Variety:** an article isn't used again within 180 days in the same track. If a topic's article can't be found or was used recently, the AI is asked for a replacement.
-- **Reading time** is worked out from the lesson's length: 200 words a minute for grown-ups, 120 for the kids' read-aloud lessons, at least 1 minute.
-- **Shared by everyone:** the first person to open Learn each day starts the writing, which takes about 20 seconds per track, with each step shown as it goes. After that it opens straight away for everyone. If Wikipedia or the AI can't be reached, it tries again 30 minutes later.
-- **Word of the day** sits with the grown-ups' lessons as the **Vocabulary** card: Merriam-Webster's Word of the Day (an adult vocabulary word) from their free daily feed: the word, part of speech, definition and an example sentence. **Pronunciation and origin** opens the pronunciation and the "Did you know?" note on where the word comes from. A link goes to the full entry. The feed updates overnight, so very early in the morning the word may appear a little later.
-- **Daily knowledge check:** three multiple-choice questions on the day's lessons in each track. Each person answers once; you then see the right answer and why, and your score for the day.
+- **Variety:** an article isn't used again within 180 days. If a topic's article can't be found or was used recently, the AI is asked for a replacement.
+- **Reading time** is worked out from the lesson's length: 200 words a minute, at least 1 minute.
+- **Shared by everyone:** the first person to open Learn each day starts the writing, which takes about 20 seconds, with each step shown as it goes. After that it opens straight away for everyone. If Wikipedia or the AI can't be reached, it tries again 30 minutes later.
+- **Word of the day** sits with the lessons as the **Vocabulary** card: Merriam-Webster's Word of the Day (an adult vocabulary word) from their free daily feed: the word, part of speech, definition and an example sentence. **Pronunciation and origin** opens the pronunciation and the "Did you know?" note on where the word comes from. A link goes to the full entry. The feed updates overnight, so very early in the morning the word may appear a little later.
+- **Daily knowledge check:** three multiple-choice questions on the day's lessons. Each person answers once; you then see the right answer and why, and your score for the day.
 - **Streak:** each person's count of days in a row with at least one lesson read or question answered. It doesn't reset until a whole day is missed.
-- **On Today:** **Today's extras** lists the grown-ups' lessons with their reading times (once someone has opened Learn that day) and links to Learn. Trivia stays on Today.
+- **On Today:** **Today's extras** lists the day's lessons with their reading times (once someone has opened Learn that day) and links to Learn. Trivia stays on Today.
 
 **Photos.**
-- **Adding:** the upload box takes as many photos as you like at once, from the camera roll or the camera. Each one is turned the right way up, shrunk (about 1600 px), and stripped of its hidden details, including location, before it's saved.
+- **Adding:** the upload box takes as many photos as you like at once, from the camera roll or the camera. Type an optional **Caption** before tapping **Add**: it's saved on every photo in that upload, and you can change any of them later. Each one is turned the right way up, shrunk (about 1600 px), and stripped of its hidden details, including location, before it's saved.
 - **Which week:** a photo goes in the week (Monday to Sunday) it was taken, using the camera's date when the file has one, otherwise the day it's added. So last weekend's photos added on Monday still land in last weekend's week. Old photos land in their own month and year.
 - **Photo of the week:** the first photo in a week becomes the photo of the week. Tap **Open** under any photo to make it the photo of the week instead, add or change its caption, fix its date (which can move it to another week), or delete it.
 - **Timeline:** pick the year and month at the top (months show how many photos they have). Weeks are newest first, each headed by its dates (e.g. "Nov 2 – 8, 2026"). The photo of the week is shown large and every photo shows its date with the year.
@@ -433,14 +440,19 @@ It opens like an app and stays signed in (each visit renews it; 30 days without 
 - **Storage:** photos are kept in a private Supabase Storage bucket called `photos`, which `sql/schema.sql` creates. The bucket isn't public: the app shows photos through links that expire after an hour, so a copied link stops working. At about 0.5 MB each (full size plus a small copy), Supabase's free 1 GB holds roughly 2,000 photos, which is about 7 years at 5 photos a week. Delete photos you don't need to free up space, or move to a paid Supabase plan later.
 - **iPhone photos:** HEIC photos are accepted and converted. If a photo ever won't upload, set **Settings → Camera → Formats → Most Compatible** on the phone. Each upload can be up to 40 MB.
 
-**Journal/reflection.** Each person's journal is private: no one else can see it, including other admins.
-- **Prompts:** each day AI writes a fresh prompt for you, often mentioning the kids by name (from **Settings → Kids' names**). On Sundays it's a deeper weekly reflection looking back on the week and ahead to the next.
-- **Your prompt stays put:** it's saved, so it doesn't change until you tap **New prompt**. **Prompt me** asks for one on a theme (gratitude, patience, marriage, the kids, faith, growing as a parent, fun memories, hard days).
-- **If the AI can't be reached:** you get a simple everyday prompt (or the Sunday reflection) instead.
-- **On Today:** the day's prompt shows until you've written; tap the journal button to open the journal. If you wrote something exactly a year ago, a yellow **A year ago today** card shows it. **On this day** on the Journal page lists every earlier year.
-- **One entry a day:** writing again the same day updates that day's entry.
+**Countdown.** Days until the things you're looking forward to: a trip, a party, a due date.
+- **Adding:** on Today's **Countdown** card, tap **Add**, type what it is, pick the date and an icon, and **Save**.
+- **On Today:** the next 4 within a year, soonest first, showing **Today!**, **Tomorrow** or **N days**, with the date.
+- **In Week ahead:** each event is tagged on its day, next to any holiday.
+- **Manage** lists every countdown, past ones included, to edit (✏️) or delete. Past events drop off Today by themselves.
 
-**Quick add.** The round **+** in the bottom corner adds a reminder, appointment, note, grocery item or meal from any page. It's hidden on Ask AI and Journal so it doesn't cover the writing box. For grocery items, separate several with commas.
+**Gratitude jar.** A shared jar of short notes: one a day each, seen by everyone who signs in.
+- **Prompt of the day:** a simple question for each date of the year (366, themed by month: fresh starts in January, love in February, beach days in summer, thanks in November, and so on). It's the same for everyone, and each date keeps its prompt every year. Follow it or write anything. To change one, edit its line in `hub/gratitude_prompts.txt` (January 1 is first).
+- **Adding:** type a few words in the card on Today (or on **More → Gratitude jar**) and tap **Put it in the jar**. Writing again the same day replaces your note; tap **Edit my note** to change it. Notes can be up to 300 characters.
+- **From the jar:** Today shows one earlier note, the same for everyone that day. On the Gratitude page, **Shake the jar** pulls out another.
+- **All notes:** the Gratitude page lists every note, newest first, with a search box and a filter for just your own. You can delete your own notes.
+
+**Quick add.** The round **+** in the bottom corner adds a reminder, appointment, note, grocery item or meal from any page. It's hidden on Ask AI and the Gratitude jar so it doesn't cover the writing box. For grocery items, separate several with commas.
 
 **Deleting.** Delete buttons ask first (notes and the grocery **Clear checked** are the exceptions): a small box opens with **Yes, delete** (or **Yes, remove**). Tap anywhere else to cancel.
 
@@ -471,7 +483,7 @@ What's switched off is hidden from the menus and pages, and the app also refuses
 
 ## Notes
 
-- **Security.** Nothing loads until someone signs in with a login you created. The code lives in a private repo, and the secrets live only in Community Cloud's Secrets box and your own `secrets.toml`, never in git. Ask AI chats and journals are stored per login and only shown to their owner. Public sign-ups are off (step 5), and the database is closed to the public API (step 2). The saved sign-in is kept in each device's browser storage, works only once (each visit replaces it), and is forgotten after 30 days without a visit or when you sign out.
+- **Security.** Nothing loads until someone signs in with a login you created. The code lives in a private repo, and the secrets live only in Community Cloud's Secrets box and your own `secrets.toml`, never in git. Ask AI chats are stored per login and only shown to their owner; gratitude notes are shared with the family. Public sign-ups are off (step 5), and the database is closed to the public API (step 2). The saved sign-in is kept in each device's browser storage, works only once (each visit replaces it), and is forgotten after 30 days without a visit or when you sign out.
 - **Time zone.** All dates and times use `APP_TZ` (default `America/New_York`). Community Cloud servers run on UTC, so the app sets this explicitly, including for the database session.
 - **Community Cloud limits.** The free plan gives each app about 1 GB of memory, which is plenty for this app. Apps sleep after 12 hours without visits (see **Updating the app**). One private app is allowed per account.
 - **Backups.** Your data lives in Supabase. On the free tier, you can take an export under **Database → Backups**, or with `pg_dump` against the session pooler.

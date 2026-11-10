@@ -166,12 +166,20 @@ div[data-testid="stVerticalBlockBorderWrapper"] { background: var(--sh-paper); b
 .sh-trivia-right { background: #D7EFE3; color: #1F6B47; }
 .sh-trivia-wrong { background: #FBD9D3; color: #A3322A; }
 
-/* ---- Journal ------------------------------------------------------------------------------------ */
+/* ---- Nudges and gratitude jar ----------------------------------------------------------------- */
 .sh-nudge { display: flex; align-items: flex-start; gap: .75rem; background: var(--sh-paper);
   border: 1px solid var(--sh-line); border-radius: 16px; padding: .75rem 1rem; margin-bottom: .5rem; }
 .sh-nudge.is-year { background: #FFF0B3; border-color: #F1DE8A; }
 .sh-nudge-prompt { font-family: var(--sh-head); font-weight: 700; font-size: 1.05rem; line-height: 1.25; }
 .sh-prompt-text { font-family: var(--sh-head); font-weight: 700; font-size: 1.35rem; line-height: 1.25; margin: 0 0 .8rem; }
+.sh-count { display: flex; align-items: center; gap: .8rem; padding: .35rem 0; border-bottom: 1px dashed var(--sh-line); }
+.sh-count:last-child { border-bottom: 0; }
+.sh-count-n { min-width: 5.2rem; text-align: center; font-family: var(--sh-head); font-weight: 800; font-size: 1.05rem;
+  background: #E3F1EC; color: #1F5E50; border-radius: 10px; padding: .3rem .4rem; }
+.sh-count-t { font-weight: 700; }
+.sh-count-chip { background: #E3F1EC !important; color: #1F5E50 !important; }
+.sh-jar-note { background: #FFF6DD; border: 1px solid #F1DE8A; border-radius: 12px; padding: .55rem .8rem; margin: .3rem 0; }
+.sh-jar-note .who { font-size: .8rem; color: var(--sh-muted, #6b7a7d); }
 
 /* ---- Sticky notes ----------------------------------------------------------------------------- */
 .fh-sticky { position: relative; background: var(--note, #fff3a8); border-radius: 4px 4px 14px 4px;

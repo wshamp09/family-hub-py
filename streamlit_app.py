@@ -13,7 +13,7 @@ st.set_page_config(page_title=APP_TITLE, page_icon=str(APP_DIR / "static" / "ico
                    layout="wide", initial_sidebar_state="collapsed")
 
 from hub import photos, quick, session, ui  # noqa: E402  (after set_page_config)
-from hub.pages import (appts, ask, bills, budget, calendar, chores, contacts, grocery, journal, kids, learn,  # noqa: E402
+from hub.pages import (appts, ask, bills, budget, calendar, chores, contacts, grocery, gratitude, kids, learn,  # noqa: E402
                        meals, notes, settings, today, week, workouts)
 from hub.pages import photos as photos_page  # noqa: E402
 
@@ -58,7 +58,7 @@ MORE = [("grocery", "Grocery", ":material/shopping_cart:", grocery.page),
         ("week", "Week ahead", ":material/date_range:", week.page),
         ("kids", "Kids", ":material/child_care:", kids.page),
         ("learn", "Learn", ":material/school:", learn.page),
-        ("journal", "Journal/reflection", ":material/menu_book:", journal.page),
+        ("gratitude", "Gratitude jar", ":material/favorite:", gratitude.page),
         ("photos", photo_title, ":material/photo_library:", photos_page.page),
         ("workouts", "Workouts", ":material/directions_run:", workouts.page),
         ("bills", "Bills", ":material/receipt_long:", bills.page),
@@ -67,7 +67,7 @@ MORE = [("grocery", "Grocery", ":material/shopping_cart:", grocery.page),
         ("contacts", "Contacts", ":material/contacts:", contacts.page),
         ("settings", "Settings", ":material/settings:", settings.page)]
 MONEY_PAGES = {"bills", "budget"}
-NO_FAB = {"ask", "journal"}          # keep writing areas clear
+NO_FAB = {"ask", "gratitude"}        # keep writing areas clear
 
 pages = {}
 for key, title, icon, fn in MAIN + MORE:
