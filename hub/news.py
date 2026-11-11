@@ -1,8 +1,9 @@
-"""Today's headlines: 3 national + 2 local, as headlines and links only (no summaries).
-
-Each group tries its feeds in order and uses the first that works:
-  national  NPR news (feeds.npr.org), then NPR top stories, then npr.org's own feed address
-  local     News4JAX (WJXT): its local news feed, then its news feed, then its main feed
+"""Today's headlines in three groups, as headlines and links only (no summaries):
+  national  Google News, U.S. section: its top 3 stories
+  sports    Google News, Sports section: its top 3 stories
+  local     News4JAX (WJXT): its top 2 local stories (then its news feed, then its main feed, as backups)
+Google News collects stories from many outlets; each headline shows the outlet it came from. Its feeds list
+stories in Google's order of importance, which is kept.
 The set is saved in daily_extras (kind "news") and fetched again when it's more than NEWS_REFRESH_HOURS old,
 so everyone sees the same headlines and the feeds are read at most about 12 times a day. If the feeds can't
 be reached, the last set stays up (and is tried again after NEWS_RETRY_MIN minutes)."""
@@ -21,20 +22,21 @@ import requests
 from . import db
 from .config import TZ, now, today
 
-NEWS_FEEDS = {
-    "national": [("NPR", "https://feeds.npr.org/1001/rss.xml"),
-                 ("NPR", "https://feeds.npr.org/1002/rss.xml"),
-                 ("NPR", "https://www.npr.org/rss/rss.php?id=1001")],
+GOOGLE_NEWS = "https://news.google.com/rss/headlines/section/topic/{topic}?hl=en-US&gl=US&ceid=US:en"
+NEWS_FEEDS = {      # group: [(feed name, address), ...] tried in order until one works
+    "national": [("Google News", GOOGLE_NEWS.format(topic="NATION"))],
+    "sports": [("Google News", GOOGLE_NEWS.format(topic="SPORTS"))],
     "local": [("News4JAX", "https://www.news4jax.com/arc/outboundfeeds/rss/category/news/local/?outputType=xml"),
               ("News4JAX", "https://www.news4jax.com/arc/outboundfeeds/rss/category/news/?outputType=xml"),
               ("News4JAX", "https://www.news4jax.com/arc/outboundfeeds/rss/?outputType=xml")],
 }
-NEWS_COUNT = {"national": 3, "local": 2}
+NEWS_GROUPS = {"national": "National", "sports": "Sports", "local": "Local"}   # order and headings on Today
+NEWS_COUNT = {"national": 3, "sports": 3, "local": 2}
 NEWS_REFRESH_HOURS = 2
 NEWS_RETRY_MIN = 30
 NEWS_MAX_BYTES = 3_000_000
 NEWS_UA = "Mozilla/5.0 (compatible; TheShampHouse/1.0; family organizer)"   # some news sites refuse unknown programs
-NEWS_PARTIAL_RETRY_MIN = 30    # if one group (national or local) came back empty, try again sooner
+NEWS_PARTIAL_RETRY_MIN = 30    # if a group came back empty, try again sooner
 _fail = {"at": 0.0}
 
 
@@ -48,7 +50,7 @@ def _text(el, *names) -> str:
 
 def parse_feed(xml_data, source: str) -> list[dict]:
     """RSS or Atom (bytes, so the feed's own declared character set is used) into
-    [{title, url, source, published}], newest first as the feed lists them."""
+    [{title, url, source (the outlet), via (the feed), published}], in the feed's own order."""
     root = ET.fromstring(xml_data)
     atom = "{http://www.w3.org/2005/Atom}"
     items = root.findall("./channel/item") or root.findall(f"{atom}entry")
@@ -72,15 +74,18 @@ def parse_feed(xml_data, source: str) -> list[dict]:
             if d is not None:
                 pub = (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).isoformat()
         title = re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", "", title))).strip()
+        outlet = _text(it, "source") or source            # Google News names each story's outlet
+        if outlet != source:
+            title = re.sub(rf"\s+[-–—]\s+{re.escape(outlet)}\s*$", "", title)
         if title and link.startswith("http"):
-            out.append({"title": title, "url": link, "source": source, "published": pub})
+            out.append({"title": title, "url": link, "source": outlet, "via": source, "published": pub})
     return out
 
 
 def pick_headlines(groups: dict[str, list[dict]], counts: dict[str, int] = NEWS_COUNT) -> list[dict]:
-    """The first N of each group, national first, skipping repeated headlines."""
+    """The first N of each group, in NEWS_GROUPS order, skipping repeated headlines."""
     seen, out = set(), []
-    for g in ("national", "local"):
+    for g in NEWS_GROUPS:
         n = 0
         for it in groups.get(g) or []:
             key = re.sub(r"\W+", "", it["title"].lower())
@@ -120,14 +125,14 @@ def fetch_news() -> dict:
 
 def is_stale(saved: dict | None, at: datetime, hours: float = NEWS_REFRESH_HOURS) -> bool:
     """Due for a refresh: after NEWS_REFRESH_HOURS, after NEWS_PARTIAL_RETRY_MIN if a group was missing, or
-    straight away if a saved headline came from an outlet no longer in NEWS_FEEDS."""
+    straight away if a saved headline came from a feed or group no longer in NEWS_FEEDS."""
     if not saved or not saved.get("items"):
         return True
-    outlets = {src for feeds in NEWS_FEEDS.values() for src, _ in feeds}
-    if any(it.get("source") not in outlets for it in saved["items"]):
+    feeds = {(g, name) for g, fl in NEWS_FEEDS.items() for name, _ in fl}
+    if any((it.get("group"), it.get("via")) not in feeds for it in saved["items"]):
         return True
     groups = {it.get("group") for it in saved["items"]}
-    if not {"national", "local"} <= groups:
+    if not set(NEWS_GROUPS) <= groups:
         hours = min(hours, NEWS_PARTIAL_RETRY_MIN / 60)
     try:
         return at - datetime.fromisoformat(saved["fetched_at"]) >= timedelta(hours=hours)

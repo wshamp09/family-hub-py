@@ -302,37 +302,38 @@ def _():
     return "wait times from Groq's message (ms, s, minutes) and Retry-After OK"
 
 
-@step("Headlines: feed reading, 3 national + 2 local, refresh timing")
+@step("Headlines: feed reading, 3 national + 3 sports + 2 local, refresh timing")
 def _():
     from datetime import datetime, timezone
-    from hub.news import ago, is_stale, parse_feed, pick_headlines
-    rss = ('<rss><channel><item><title>A &amp; B</title><link>https://n/1</link>'
-           '<pubDate>Tue, 10 Nov 2026 15:00:00 GMT</pubDate></item><item><title>Two</title><link>https://n/2</link></item>'
-           '<item><title>No link</title></item><item><title>Three</title><link>https://n/3</link></item>'
-           '<item><title>Four</title><link>https://n/4</link></item></channel></rss>')
+    from hub.news import NEWS_GROUPS, ago, is_stale, parse_feed, pick_headlines
+    gn = ('<?xml version="1.0" encoding="UTF-8"?><rss><channel>'
+          + "".join(f'<item><title>Story {i} — it’s here - Outlet {i}</title><link>https://news.google.com/a{i}</link>'
+                    f'<pubDate>Tue, 10 Nov 2026 1{i}:00:00 GMT</pubDate><source url="https://o{i}">Outlet {i}</source></item>'
+                    for i in range(1, 5)) + '</channel></rss>').encode()
     atom = ('<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Local one</title><link href="https://l/1"/></entry>'
-            '<entry><title>A &amp; B</title><link href="https://l/dup"/></entry><entry><title>Local two</title>'
+            '<entry><title>Story 1 — it’s here</title><link href="https://l/dup"/></entry><entry><title>Local two</title>'
             '<link href="https://l/2"/></entry><entry><title>Local three</title><link href="https://l/3"/></entry></feed>')
-    n, l = parse_feed(rss, "NPR"), parse_feed(atom, "News4JAX")
-    check([x["title"] for x in n] == ["A & B", "Two", "Three", "Four"], f"RSS reading is off: {n}")
-    check(l[0]["url"] == "https://l/1", "Atom links not read")
-    p = pick_headlines({"national": n, "local": l})
-    check([x["title"] for x in p] == ["A & B", "Two", "Three", "Local one", "Local two"],
-          f"should be 3 national + 2 local with no repeats: {[x['title'] for x in p]}")
+    n = parse_feed(gn, "Google News")
+    check(n[0]["title"] == "Story 1 — it’s here" and n[0]["source"] == "Outlet 1" and n[0]["via"] == "Google News",
+          f"Google News titles, outlets or dashes are off: {n[0]}")
+    l = parse_feed(atom, "News4JAX")
+    check(l[0]["url"] == "https://l/1" and l[0]["source"] == "News4JAX", "Atom links not read")
+    sp = [dict(x, title=x["title"].replace("Story", "Game")) for x in n]
+    p = pick_headlines({"national": n, "sports": sp, "local": l})
+    check([(x["group"], x["title"][:7]) for x in p] == [("national", "Story 1"), ("national", "Story 2"), ("national", "Story 3"),
+                                                        ("sports", "Game 1 "), ("sports", "Game 2 "), ("sports", "Game 3 "),
+                                                        ("local", "Local o"), ("local", "Local t")],
+          f"should be 3 national, 3 sports, 2 local, in Google's order, with no repeats: {[(x['group'], x['title']) for x in p]}")
+    check(list(NEWS_GROUPS.values()) == ["National", "Sports", "Local"], "group headings or order are off")
     at = datetime(2026, 11, 10, 17, 0, tzinfo=timezone.utc)
-    check(ago(n[0]["published"], at) == "2h ago" and ago("", at) == "", "'time ago' is off")
-    fresh = {"fetched_at": datetime(2026, 11, 10, 15, 30, tzinfo=timezone.utc).isoformat(), "items": [1]}
-    fresh = dict(fresh, items=[{"group": "national", "source": "NPR"}, {"group": "local", "source": "News4JAX"}])
-    check(not is_stale(fresh, at) and is_stale(fresh, at.replace(hour=18)) and is_stale(None, at),
-          "headlines should refresh after 2 hours")
-    partial = dict(fresh, items=[{"group": "local", "source": "News4JAX"}])
-    check(is_stale(dict(fresh, items=[{"group": "national", "source": "NPR"}, {"group": "local", "source": "Old Outlet"}]), at),
-          "headlines from an outlet no longer used should be replaced straight away")
-    check(is_stale(partial, at.replace(hour=16, minute=5)), "a set missing national or local should be retried after 30 minutes")
-    check(parse_feed('<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Votes — what’s next</title>'
-                     '<link>https://n/1</link></item></channel></rss>'.encode(), "NPR")[0]["title"] == "Votes — what’s next",
-          "feed text should keep its dashes and quotes")
-    return "RSS and Atom, 3 + 2 without repeats, time ago, 2-hour refresh (30 min if a group is missing, at once if an outlet changed) OK"
+    check(ago(n[0]["published"], at) == "6h ago" and ago("", at) == "", "'time ago' is off")
+    fresh = {"fetched_at": datetime(2026, 11, 10, 15, 30, tzinfo=timezone.utc).isoformat(), "items": p}
+    check(not is_stale(fresh, at) and is_stale(fresh, at.replace(hour=18)) and is_stale(None, at), "headlines should refresh after 2 hours")
+    nosport = dict(fresh, items=[x for x in p if x["group"] != "sports"])
+    check(is_stale(nosport, at.replace(hour=16, minute=5)), "a set missing a group should be retried after 30 minutes")
+    check(is_stale(dict(fresh, items=[{"group": "national", "source": "NPR", "via": "NPR"}]), at),
+          "headlines from a feed no longer used should be replaced straight away")
+    return "Google News outlets, 3 + 3 + 2 without repeats, headings, 2-hour refresh (30 min if a group is missing) OK"
 
 
 @step("Space photo of the day: reading NASA's feed")
@@ -729,7 +730,7 @@ def _():
             f"trivia: {tv['question'][:40]}…; quote by {qt['author']}")
 
 
-@step("Headline feeds (NPR, News4JAX)", live=True)
+@step("Headline feeds (Google News U.S. and Sports, News4JAX)", live=True)
 def _():
     import requests
     from hub.news import NEWS_FEEDS, NEWS_UA, parse_feed
@@ -745,7 +746,7 @@ def _():
             ok[g] = ok.get(g, False) or n > 0
             print(f"    · {g}: {url} -> {res}", flush=True)
     check(all(ok.values()), "no feed worked for: " + ", ".join(g for g, v in ok.items() if not v))
-    return "national and local both have a working feed"
+    return "national, sports and local each have a working feed"
 
 
 @step("Word of the day source (merriam-webster.com)", live=True)
@@ -868,7 +869,7 @@ def _():
 fails = [r for r in results if not r[1]]
 print()
 if not fails:
-    print("All checks passed. Run the app with:  streamlit run streamlit_app.py")
+    print("All checks passed. Run the app with:  python -m streamlit run streamlit_app.py")
 else:
     print(f"{len(fails)} check(s) failed: fix those and run this again.")
     for n, _, m in fails:

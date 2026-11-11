@@ -276,16 +276,18 @@ def extras_card() -> None:
                                  'target="_blank" rel="noopener">ZenQuotes API</a></div>'))
         if nw and nw.get("items"):
             at = now()
-            rows = "".join(
-                f'<div class="sh-extra-text"><a href="{esc(it["url"])}" target="_blank" rel="noopener">{esc(it["title"])}</a>'
-                f' <span class="small sh-muted">· {esc(it["source"])}'
-                + (f' · {esc(news.ago(it.get("published", ""), at))}' if news.ago(it.get("published", ""), at) else "")
-                + '</span></div>' for it in nw["items"])
-            groups = {it.get("group") for it in nw["items"]}
-            missing = [g for g in ("national", "local") if g not in groups]
-            if missing:
-                rows += (f'<div class="small sh-muted">{" and ".join(m.title() for m in missing)} headlines couldn\'t be '
-                         'loaded just now; the app tries again every 30 minutes.</div>')
+
+            def headline(it) -> str:
+                when = news.ago(it.get("published", ""), at)
+                return (f'<div class="sh-extra-text"><a href="{esc(it["url"])}" target="_blank" rel="noopener">'
+                        f'{esc(it["title"])}</a> <span class="small sh-muted">· {esc(it["source"])}'
+                        + (f' · {esc(when)}' if when else "") + '</span></div>')
+            rows = ""
+            for gkey, glabel in news.NEWS_GROUPS.items():
+                items = [it for it in nw["items"] if it.get("group") == gkey]
+                rows += f'<div class="sh-news-head">{esc(glabel)}</div>'
+                rows += ("".join(headline(it) for it in items) if items else
+                         '<div class="small sh-muted">Couldn\'t be loaded just now; the app tries again every 30 minutes.</div>')
             parts.append(_item("bills", "📰", "Headlines", rows))
         if g["history"]:
             parts.append(_item("appt", "🏛️", "This day in history", "".join(

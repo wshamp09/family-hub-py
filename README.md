@@ -180,7 +180,7 @@ What it checks:
   - weather notes and the moon phase
   - school run traffic rules, in season produce, word of the day parsing
   - daily learning: reading time, article trimming, knowledge-check questions and streaks
-  - headlines: reading news feeds, 3 national + 2 local without repeats, and the 2-hour refresh
+  - headlines: reading news feeds, 3 national + 3 sports + 2 local without repeats, and the 2-hour refresh
   - photos: weeks, photo of the week and the collage layout
   - holidays (Google feed and church days), art of the day, space photo of the day, grocery combining
   - the budget maths reproduces the household spreadsheet
@@ -192,7 +192,7 @@ What it checks:
   - bible-api.com; Wikipedia, iNaturalist, Open Trivia DB and ZenQuotes; Merriam-Webster
   - TheMealDB (recipe of the day)
   - NASA's Astronomy Picture of the Day (science.nasa.gov feed)
-  - the headline feeds (NPR and News4JAX), listing each feed address and whether it worked
+  - the headline feeds (Google News U.S. and Sports, News4JAX), listing each feed address and whether it worked
   - daily learning: builds a day's lessons from Wikipedia with Groq (nothing is saved)
   - the Art Institute of Chicago and Google's holiday calendar
   - Open-Meteo weather
@@ -398,7 +398,7 @@ It opens like an app and stays signed in (each visit renews it; 30 days without 
   - a chilly morning (45° or below)
 
 **Today's extras.** Each item is fetched once a day, saved, and shown to everyone. If a source is down, that line is skipped and tried again 30 minutes later.
-- **Headlines:** the top 3 national stories from NPR and the top 2 local stories from News4JAX (WJXT Channel 4), each with its outlet and how long ago it was posted. Tap a headline to read it on the outlet's site. Only headlines are shown, no AI summaries. They refresh every 2 hours (after 30 minutes if national or local came back empty) and everyone sees the same set. Each outlet has backup feed addresses: NPR's other news feeds, and News4JAX's general news and main feeds. If none can be reached, the last headlines stay up.
+- **Headlines:** three groups, each under its own heading: **National**, the top 3 stories in Google News' U.S. section; **Sports**, the top 3 in Google News' Sports section; and **Local**, the top 2 local stories from News4JAX (WJXT Channel 4). Google News gathers stories from many outlets, so each headline shows its outlet and how long ago it was posted. Tap a headline to read it on the outlet's site. Only headlines are shown, no AI summaries. They refresh every 2 hours and everyone sees the same set. If a group can't be loaded, its heading says so and the app tries again after 30 minutes. News4JAX has backup feed addresses (its general news and main feeds).
 - **This day in history:** one or two events from Wikipedia's "On this day", with a link to read more.
 - **Dinner question:** a conversation starter written by AI for the family. It avoids the past three weeks' questions.
 - **Animal of the day (spotted near home):** a wild animal that someone photographed within about 25 miles of home in the last two weeks, from [iNaturalist](https://www.inaturalist.org) (free, no key). It shows the photo, the common and scientific names, what kind of animal it is and the day it was seen ("Bird spotted near home on Nov 5"), a short description, and a link to the sighting.

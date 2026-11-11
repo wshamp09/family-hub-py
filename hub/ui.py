@@ -177,6 +177,9 @@ div[data-testid="stVerticalBlockBorderWrapper"] { background: var(--sh-paper); b
 .sh-count-n { min-width: 5.2rem; text-align: center; font-family: var(--sh-head); font-weight: 800; font-size: 1.05rem;
   background: #E3F1EC; color: #1F5E50; border-radius: 10px; padding: .3rem .4rem; }
 .sh-count-t { font-weight: 700; }
+.sh-news-head { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--sh-muted, #6b7a7d); margin: .55rem 0 .15rem; }
+.sh-news-head:first-child { margin-top: 0; }
 .sh-count-chip { background: #E3F1EC !important; color: #1F5E50 !important; }
 .sh-jar-note { background: #FFF6DD; border: 1px solid #F1DE8A; border-radius: 12px; padding: .55rem .8rem; margin: .3rem 0; }
 .sh-jar-note .who { font-size: .8rem; color: var(--sh-muted, #6b7a7d); }
