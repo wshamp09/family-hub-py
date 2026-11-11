@@ -50,20 +50,47 @@ def trim_article(text: str, limit: int = LEARN_ARTICLE_CHARS) -> str:
     return cut[:cut.rfind("\n")].strip() if "\n" in cut else cut
 
 
+def subject_key(x) -> str:
+    """'Science', 'science' or 'Health & how things work' -> the subject's key ('' if it isn't one)."""
+    t = re.sub(r"[^a-z]", "", str(x or "").lower())
+    for k, (label, *_) in LEARN_SUBJECTS.items():
+        if t and (t == k or t == re.sub(r"[^a-z]", "", label.lower()) or t.startswith(k)):
+            return k
+    return ""
+
+
+def _answer_index(a, choices: list[str]):
+    """The correct choice's position from a 0-based number, a letter (A-E) or the choice's own text."""
+    if isinstance(a, bool):
+        return None
+    if isinstance(a, int):
+        return a
+    t = str(a or "").strip()
+    low = [c.lower() for c in choices]
+    plain = re.sub(r"^\(?[A-Ea-e][).:]\s+", "", t).lower()
+    if plain in low:                       # the choice's own text wins (choices can be numbers or letters)
+        return low.index(plain)
+    if re.fullmatch(r"\d+", t):
+        return int(t)
+    m = re.fullmatch(r"\(?([A-Ea-e])[).:]?", t)
+    return "abcde".index(m.group(1).lower()) if m else None
+
+
 def clean_quiz(qs, n: int = LEARN_QUIZ_N) -> list[dict]:
-    """Keep well-formed questions: 3-4 different choices and a valid answer index."""
+    """Keep well-formed questions: 3-5 different choices and a correct answer that's one of them.
+    Accepts the answer as a 0-based number, a letter or the choice's text, and drops 'A) ' labels."""
     out = []
     for q in qs or []:
         if not isinstance(q, dict):
             continue
-        ch = [str(c).strip() for c in (q.get("choices") or []) if str(c).strip()]
-        try:
-            a = int(q.get("answer"))
-        except (TypeError, ValueError):
-            continue
-        if str(q.get("question") or "").strip() and 3 <= len(ch) <= 4 and len(set(ch)) == len(ch) and 0 <= a < len(ch):
+        ch = [re.sub(r"^\(?[A-Ea-e][).:]\s+", "", str(c).strip()) for c in (q.get("choices") or q.get("options") or [])]
+        ch = [c for c in ch if c]
+        a = _answer_index(next((q[k] for k in ("answer", "answer_index", "correct", "correct_answer") if k in q), None), ch)
+        if str(q.get("question") or "").strip() and 3 <= len(ch) <= 5 and len(set(ch)) == len(ch) \
+                and a is not None and 0 <= a < len(ch):
             out.append({"question": str(q["question"]).strip(), "choices": ch, "answer": a,
-                        "why": str(q.get("why") or "").strip(), "subject": str(q.get("subject") or "")})
+                        "why": str(q.get("why") or q.get("explanation") or "").strip(),
+                        "subject": subject_key(q.get("subject"))})
     return out[:n]
 
 
@@ -132,6 +159,16 @@ def write_lessons(track: str, arts: dict) -> dict:
     return groq.chat_json(sys, usr, temperature=0.5)
 
 
+def write_quiz(lessons: list[dict]) -> list:
+    """A second try at the knowledge check, from the finished lessons."""
+    sys = ("Write " + str(LEARN_QUIZ_N) + " multiple-choice questions whose answers are stated in the lessons below. "
+           "Each has exactly 4 different choices and one correct answer. "
+           'Return JSON: {"quiz": [{"subject": "<subject key>", "question": "...", "choices": ["...", "...", "...", "..."], '
+           '"answer": <0-based index of the correct choice>, "why": "<one sentence>"}]}.')
+    usr = "\n\n".join(f'Subject key "{l["subject"]}": {l["title"]}\n{l["body"]}' for l in lessons)
+    return groq.chat_json(sys, usr, temperature=0.3).get("quiz") or []
+
+
 def _recent_articles(track: str, day: date) -> list[str]:
     out = []
     for r in db.get("""select content from daily_extras where kind = $1 and extra_date >= $2::date
@@ -181,6 +218,14 @@ def make_day(track: str, day: date, progress=print) -> dict:
         raise RuntimeError("no lessons came back")
     keep = {l["subject"] for l in lessons}
     quiz = [q for q in clean_quiz(w.get("quiz")) if q["subject"] in keep or not q["subject"]]
+    if len(quiz) < LEARN_QUIZ_N:
+        progress("Writing the knowledge check…")
+        try:
+            more = [q for q in clean_quiz(write_quiz(lessons)) if q["subject"] in keep or not q["subject"]]
+            have = {q["question"] for q in quiz}
+            quiz += [q for q in more if q["question"] not in have][:LEARN_QUIZ_N - len(quiz)]
+        except Exception as e:  # noqa: BLE001
+            print(f"[learn] knowledge check failed: {e}")
     progress("Done")
     return {"track": track, "lessons": lessons, "quiz": quiz}
 
@@ -193,6 +238,17 @@ def get_day(track: str, day: date, progress=print) -> dict | None:
     """Today's saved lessons for a track; builds them the first time they're needed (shared with everyone).
     If building fails, it isn't tried again for LEARN_RETRY_MIN minutes."""
     saved = saved_day(track, day)
+    if saved and not saved.get("quiz") and (track, day, "quiz") not in _fail:
+        _fail[(track, day, "quiz")] = time.time()        # one top-up try per day (per app start)
+        try:
+            keep = {l["subject"] for l in saved["lessons"]}
+            quiz = [q for q in clean_quiz(write_quiz(saved["lessons"])) if q["subject"] in keep or not q["subject"]]
+            if quiz:
+                saved["quiz"] = quiz
+                db.run("update daily_extras set content = $3 where extra_date = $1::date and kind = $2",
+                       day, f"learn_{track}", json.dumps(saved))
+        except Exception as e:  # noqa: BLE001
+            print(f"[learn] knowledge check top-up failed: {e}")
     if saved:
         return saved
     last = _fail.get((track, day))

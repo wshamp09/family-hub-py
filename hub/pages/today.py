@@ -281,6 +281,11 @@ def extras_card() -> None:
                 f' <span class="small sh-muted">· {esc(it["source"])}'
                 + (f' · {esc(news.ago(it.get("published", ""), at))}' if news.ago(it.get("published", ""), at) else "")
                 + '</span></div>' for it in nw["items"])
+            groups = {it.get("group") for it in nw["items"]}
+            missing = [g for g in ("national", "local") if g not in groups]
+            if missing:
+                rows += (f'<div class="small sh-muted">{" and ".join(m.title() for m in missing)} headlines couldn\'t be '
+                         'loaded just now; the app tries again every 30 minutes.</div>')
             parts.append(_item("bills", "📰", "Headlines", rows))
         if g["history"]:
             parts.append(_item("appt", "🏛️", "This day in history", "".join(

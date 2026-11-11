@@ -119,8 +119,12 @@ def fetch_news() -> dict:
 
 
 def is_stale(saved: dict | None, at: datetime, hours: float = NEWS_REFRESH_HOURS) -> bool:
-    """Due for a refresh: after NEWS_REFRESH_HOURS, or after NEWS_PARTIAL_RETRY_MIN if a group was missing."""
+    """Due for a refresh: after NEWS_REFRESH_HOURS, after NEWS_PARTIAL_RETRY_MIN if a group was missing, or
+    straight away if a saved headline came from an outlet no longer in NEWS_FEEDS."""
     if not saved or not saved.get("items"):
+        return True
+    outlets = {src for feeds in NEWS_FEEDS.values() for src, _ in feeds}
+    if any(it.get("source") not in outlets for it in saved["items"]):
         return True
     groups = {it.get("group") for it in saved["items"]}
     if not {"national", "local"} <= groups:

@@ -276,12 +276,18 @@ def _():
           {"question": "Text answer", "choices": ["a", "b", "c"], "answer": "x"}]
     c = clean_quiz(qs)
     check(len(c) == 1 and c[0]["answer"] == 1, f"quiz filter is off: {c}")
+    loose = clean_quiz([{"subject": "Science", "question": "Q?", "choices": ["A) Water", "B) Fire", "C) Air"], "answer": "B"},
+                        {"subject": "Health & how things work", "question": "Q?", "choices": ["x", "y", "z"], "answer": "z"},
+                        {"subject": "money", "question": "Q?", "options": ["1", "2", "3"], "correct_answer": "2"}])
+    check([(q["subject"], q["answer"]) for q in loose] == [("science", 1), ("health", 2), ("money", 1)]
+          and loose[0]["choices"][0] == "Water",
+          f"answers given as letters or text, subject names, and 'A) ' labels should all be understood: {loose}")
     t = date(2026, 11, 8)
     d = {t - timedelta(days=i) for i in (0, 1, 2, 4)}
     check(learn_streak(d, t) == 3, "streak should count today and the days before it")
     check(learn_streak(d - {t}, t) == 2, "streak should still count up to yesterday before today's lesson")
     check(learn_streak({t - timedelta(days=3)}, t) == 0, "an old day shouldn't count as a streak")
-    return "reading time, trimming, quiz filter and streaks OK"
+    return "reading time, trimming, quiz filter (letters, text, subject names) and streaks OK"
 
 
 @step("AI requests wait and retry when Groq's per-minute limit is hit")
@@ -316,15 +322,17 @@ def _():
     at = datetime(2026, 11, 10, 17, 0, tzinfo=timezone.utc)
     check(ago(n[0]["published"], at) == "2h ago" and ago("", at) == "", "'time ago' is off")
     fresh = {"fetched_at": datetime(2026, 11, 10, 15, 30, tzinfo=timezone.utc).isoformat(), "items": [1]}
-    fresh = dict(fresh, items=[{"group": "national"}, {"group": "local"}])
+    fresh = dict(fresh, items=[{"group": "national", "source": "NPR"}, {"group": "local", "source": "News4JAX"}])
     check(not is_stale(fresh, at) and is_stale(fresh, at.replace(hour=18)) and is_stale(None, at),
           "headlines should refresh after 2 hours")
-    partial = dict(fresh, items=[{"group": "local"}])
+    partial = dict(fresh, items=[{"group": "local", "source": "News4JAX"}])
+    check(is_stale(dict(fresh, items=[{"group": "national", "source": "NPR"}, {"group": "local", "source": "Old Outlet"}]), at),
+          "headlines from an outlet no longer used should be replaced straight away")
     check(is_stale(partial, at.replace(hour=16, minute=5)), "a set missing national or local should be retried after 30 minutes")
     check(parse_feed('<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Votes — what’s next</title>'
                      '<link>https://n/1</link></item></channel></rss>'.encode(), "NPR")[0]["title"] == "Votes — what’s next",
           "feed text should keep its dashes and quotes")
-    return "RSS and Atom, 3 + 2 without repeats, time ago, 2-hour refresh (30 min if a group is missing) OK"
+    return "RSS and Atom, 3 + 2 without repeats, time ago, 2-hour refresh (30 min if a group is missing, at once if an outlet changed) OK"
 
 
 @step("Space photo of the day: reading NASA's feed")
@@ -791,6 +799,7 @@ def _():
     from hub.config import today
     from hub.learn import make_day
     d = make_day("adult", today(), progress=lambda m: print("    ·", m, flush=True))
+    check(len(d["quiz"]) >= 1, "the knowledge check came back empty twice")
     return f"{len(d['lessons'])} lessons, {len(d['quiz'])} questions, e.g. {d['lessons'][0]['title']}"
 
 

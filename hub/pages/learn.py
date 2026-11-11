@@ -87,6 +87,10 @@ def page() -> None:
             day = learn.get_day(track, today(), progress=s.write)
             s.update(label="Today's lessons are ready" if day else "Couldn't write today's lessons",
                      state="complete" if day else "error", expanded=False)
+    elif not day.get("quiz") and not st.session_state.get("_learn_quiz_tried"):
+        st.session_state["_learn_quiz_tried"] = True
+        with st.spinner("Writing today's knowledge check…"):
+            day = learn.get_day(track, today()) or day
     if not day:
         ui.empty("Today's lessons couldn't be written right now (Wikipedia or the AI may be busy). "
                  "It will try again in about 30 minutes.")
