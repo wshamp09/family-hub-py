@@ -307,7 +307,7 @@ def _():
     atom = ('<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Local one</title><link href="https://l/1"/></entry>'
             '<entry><title>A &amp; B</title><link href="https://l/dup"/></entry><entry><title>Local two</title>'
             '<link href="https://l/2"/></entry><entry><title>Local three</title><link href="https://l/3"/></entry></feed>')
-    n, l = parse_feed(rss, "NPR"), parse_feed(atom, "Jacksonville Today")
+    n, l = parse_feed(rss, "NPR"), parse_feed(atom, "News4JAX")
     check([x["title"] for x in n] == ["A & B", "Two", "Three", "Four"], f"RSS reading is off: {n}")
     check(l[0]["url"] == "https://l/1", "Atom links not read")
     p = pick_headlines({"national": n, "local": l})
@@ -316,26 +316,41 @@ def _():
     at = datetime(2026, 11, 10, 17, 0, tzinfo=timezone.utc)
     check(ago(n[0]["published"], at) == "2h ago" and ago("", at) == "", "'time ago' is off")
     fresh = {"fetched_at": datetime(2026, 11, 10, 15, 30, tzinfo=timezone.utc).isoformat(), "items": [1]}
+    fresh = dict(fresh, items=[{"group": "national"}, {"group": "local"}])
     check(not is_stale(fresh, at) and is_stale(fresh, at.replace(hour=18)) and is_stale(None, at),
           "headlines should refresh after 2 hours")
-    return "RSS and Atom, 3 + 2 without repeats, time ago, 2-hour refresh OK"
+    partial = dict(fresh, items=[{"group": "local"}])
+    check(is_stale(partial, at.replace(hour=16, minute=5)), "a set missing national or local should be retried after 30 minutes")
+    check(parse_feed('<?xml version="1.0" encoding="UTF-8"?><rss><channel><item><title>Votes — what’s next</title>'
+                     '<link>https://n/1</link></item></channel></rss>'.encode(), "NPR")[0]["title"] == "Votes — what’s next",
+          "feed text should keep its dashes and quotes")
+    return "RSS and Atom, 3 + 2 without repeats, time ago, 2-hour refresh (30 min if a group is missing) OK"
 
 
-@step("Space photo of the day tidy-up (NASA)")
+@step("Space photo of the day: reading NASA's feed")
 def _():
-    from hub.extras import apod_page, clean_apod
-    img = clean_apod({"title": "Pillars of Creation", "date": "2026-11-10", "media_type": "image",
-                      "url": "https://apod.nasa.gov/apod/image/2611/pillars.jpg", "copyright": "\nJane  Doe\n",
-                      "explanation": "One. Two! Three? Four."})
-    check(img["text"] == "One. Two! Three?" and img["credit"] == "© Jane Doe" and img["video"] == "",
-          f"image day is off: {img}")
-    check(img["url"] == "https://apod.nasa.gov/apod/ap261110.html", f"APOD page link is off: {img['url']}")
-    vid = clean_apod({"title": "Eclipse", "date": "2026-11-11", "media_type": "video",
-                      "url": "https://www.youtube.com/embed/x", "thumbnail_url": "https://img.youtube.com/x.jpg"})
-    check(vid["image"].endswith("x.jpg") and vid["video"].startswith("https://www.youtube") and vid["credit"] == "NASA",
-          f"video day is off: {vid}")
-    check(apod_page("") == "https://apod.nasa.gov/apod/", "missing date should link to APOD's home page")
-    return "image days, video days, credit and page link OK"
+    from hub.extras import apod_credit, apod_day_texts, apod_from, apod_title, og_image, parse_apod_feed
+    feed = (b'<rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel>'
+            b'<item><title>APOD: 2026 November 10 &#8211; Andromeda &amp; Friends</title><link>https://s/a</link>'
+            b'<content:encoded><![CDATA[<img src="https://science.nasa.gov/wp-content/nasa-logo@2x.png">'
+            b'<img src="https://assets.science.nasa.gov/apod/andromeda.jpg"><p>Image Credit &amp; Copyright: P. Czerski</p>'
+            b'<p>Explanation: One. Two. Three. Four.</p><p>Tomorrow\'s picture: open space</p>]]></content:encoded></item>'
+            b'<item><title>APOD: 2026 October 18 &#8211; Sonified</title><link>https://s/v</link><content:encoded><![CDATA['
+            b'<iframe src="https://www.youtube.com/embed/x"></iframe><p>Explanation: Listen.</p>]]></content:encoded></item>'
+            b'</channel></rss>')
+    items = parse_apod_feed(feed)
+    a = apod_from(items[0])
+    check(a["title"] == "Andromeda & Friends" and a["image"].endswith("andromeda.jpg"),
+          f"title or picture is off (NASA's logo must be skipped): {a}")
+    check(a["credit"] == "P. Czerski" and a["text"] == "One. Two. Three.", f"credit or explanation is off: {a}")
+    check(items[1]["video"] == "https://www.youtube.com/embed/x", "video days should link the video")
+    check(apod_title("APOD: 29 October 2026 – The Horns of Venus") == "The Horns of Venus", "day-first titles not tidied")
+    check(apod_day_texts(date(2026, 10, 29)) == ("2026 October 29", "29 October 2026"), "date matching is off")
+    page = ('<meta property="og:image" content="https://science.nasa.gov/nasa-logo.png">'
+            '<meta name="twitter:image" content="https://assets.science.nasa.gov/apod/venus.jpg">')
+    check(og_image(page).endswith("venus.jpg"), "the page's preview image should be used, never the logo")
+    check(apod_credit("Video Credit: NASA, ESA  Explanation: x") == "NASA, ESA", "video credit is off")
+    return "feed items, picture (logo skipped), credit, explanation, video days and page fallback OK"
 
 
 @step("Countdown labels")
@@ -706,15 +721,23 @@ def _():
             f"trivia: {tv['question'][:40]}…; quote by {qt['author']}")
 
 
-@step("Headline feeds (NPR, Jacksonville Today / News4JAX)", live=True)
+@step("Headline feeds (NPR, News4JAX)", live=True)
 def _():
-    from hub.news import NEWS_FEEDS, fetch_group
-    out = []
-    for g in NEWS_FEEDS:
-        items = fetch_group(g)
-        check(items, f"no {g} headlines: none of its feeds could be read")
-        out.append(f"{g}: {items[0]['source']} ({len(items)}), e.g. {items[0]['title'][:40]}")
-    return "; ".join(out)
+    import requests
+    from hub.news import NEWS_FEEDS, NEWS_UA, parse_feed
+    out, ok = [], {}
+    for g, feeds in NEWS_FEEDS.items():
+        for source, url in feeds:
+            try:
+                r = requests.get(url, headers={"User-Agent": NEWS_UA}, timeout=15)
+                n = len(parse_feed(r.content, source)) if r.ok else 0
+                res = f"{n} headlines" if r.ok else f"HTTP {r.status_code}"
+            except Exception as e:  # noqa: BLE001
+                n, res = 0, type(e).__name__
+            ok[g] = ok.get(g, False) or n > 0
+            print(f"    · {g}: {url} -> {res}", flush=True)
+    check(all(ok.values()), "no feed worked for: " + ", ".join(g for g, v in ok.items() if not v))
+    return "national and local both have a working feed"
 
 
 @step("Word of the day source (merriam-webster.com)", live=True)
@@ -747,13 +770,12 @@ def _():
             + "; ".join(f"{x['name']} {x['date']:%b %d}{' (day off)' if x['day_off'] else ''}" for x in nxt))
 
 
-@step("Space photo of the day (api.nasa.gov)", live=True)
+@step("Space photo of the day (science.nasa.gov feed)", live=True)
 def _():
-    from hub.config import cfg, today
+    from hub.config import today
     from hub.extras import fetch_apod
     a = fetch_apod(today())
-    key = "your NASA_API_KEY" if cfg("NASA_API_KEY", "") else "the shared DEMO_KEY (add NASA_API_KEY for a reliable limit)"
-    return f"{a['title']} ({a['date']}{', video' if a['video'] else ''}) using {key}"
+    return f"{a['title']}{' (video)' if a['video'] else ''}; picture {a['image'][-40:]}"
 
 
 @step("Recipe of the day source (themealdb.com)", live=True)

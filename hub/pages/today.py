@@ -326,7 +326,7 @@ def extras_card() -> None:
                                + (f'<div style="margin-top:.25rem">{esc(sp["text"])}</div>' if has_text(sp.get("text")) else "")
                                + (f'<div class="small"><a href="{esc(sp["video"])}" target="_blank" rel="noopener">'
                                   '▶ Watch today\'s video</a></div>' if has_text(sp.get("video")) else "")
-                               + f'<div class="small sh-muted">{esc(sp["credit"])} · <a href="{esc(sp["url"])}" '
+                               + f'<div class="small sh-muted">Credit: {esc(sp["credit"])} · <a href="{esc(sp["url"])}" '
                                  'target="_blank" rel="noopener">NASA Astronomy Picture of the Day</a></div></div></div>'))
         rc = g["recipe"]
         if rc:

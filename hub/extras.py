@@ -2,7 +2,7 @@
 Each is fetched once a day from its source, saved (daily_extras), and shown to everyone that day:
   history  Wikipedia "On this day" (selected events), 1-2 items
   dinner   a conversation starter written by AI (Groq), avoiding recent ones
-  space    NASA's Astronomy Picture of the Day (api.nasa.gov; NASA_API_KEY optional)
+  space    NASA's Astronomy Picture of the Day (science.nasa.gov feed, no key)
   recipe   a random main-dish recipe with a photo, from TheMealDB (free key "1", personal use)
   animal   a wild animal spotted near home in the last two weeks, from iNaturalist (photo credited)
   quote    ZenQuotes quote of the day (zenquotes.io; credit link required)
@@ -12,9 +12,11 @@ Each is fetched once a day from its source, saved (daily_extras), and shown to e
 If a source can't be reached, that line is skipped and tried again in 30 minutes."""
 from __future__ import annotations
 
+import html
 import json
 import re
 import time
+import xml.etree.ElementTree as ET
 from datetime import date, timedelta
 
 import requests
@@ -178,41 +180,98 @@ def fetch_animal(day: date) -> dict:
 
 
 # ---- Space photo of the day (NASA Astronomy Picture of the Day) ----------------------------------------
-# api.nasa.gov: a free key (NASA_API_KEY) allows 1,000 requests an hour; without one the shared DEMO_KEY is
-# used (30 an hour, 50 a day), which is enough for one request a day but can be used up by other apps on
-# the same server. Some days are a video: then its thumbnail is shown with a link to watch.
-APOD_API = "https://api.nasa.gov/planetary/apod"
+# APOD lives at science.nasa.gov/apod. Its free feed (no key) lists recent days, newest first; the app takes
+# today's item (or the newest), and reads the picture from the item, or else from the page's own preview
+# image. NASA's logo is never used as the picture.
+APOD_FEED = "https://science.nasa.gov/feed/apod-basic/"
+APOD_HOME = "https://science.nasa.gov/apod/"
+WEB_UA = "Mozilla/5.0 (compatible; TheShampHouse/1.0; family organizer)"
+_MEDIA = "{http://search.yahoo.com/mrss/}"
+_CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
 
 
-def apod_page(d: str) -> str:
-    """APOD's own page for a date, e.g. 2026-11-10 -> https://apod.nasa.gov/apod/ap261110.html"""
-    return f"https://apod.nasa.gov/apod/ap{d[2:4]}{d[5:7]}{d[8:10]}.html" if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d or "") else "https://apod.nasa.gov/apod/"
+def _is_logo(url: str) -> bool:
+    return bool(re.search(r"logo|favicon|placeholder|default-image", url or "", re.I))
 
 
-def clean_apod(a: dict) -> dict:
-    video = a.get("media_type") == "video"
-    image = (a.get("thumbnail_url") if video else a.get("url")) or ""
-    credit = re.sub(r"\s+", " ", str(a.get("copyright") or "")).strip()
-    return {"title": str(a.get("title") or "").strip(), "date": str(a.get("date") or ""),
-            "text": first_sentences(str(a.get("explanation") or ""), 3), "image": image,
-            "video": str(a.get("url") or "") if video else "", "credit": f"© {credit}" if credit else "NASA",
-            "url": apod_page(str(a.get("date") or ""))}
+def apod_title(t: str) -> str:
+    """'APOD: 2026 November 9 – Rigel and the Witch Head Nebula' -> 'Rigel and the Witch Head Nebula'"""
+    return re.sub(r"^\s*APOD:\s*(\d{4}\s+\w+\s+\d{1,2}|\d{1,2}\s+\w+\s+\d{4})\s*[–—-]\s*", "", t or "").strip()
+
+
+def apod_day_texts(d: date) -> tuple[str, str]:
+    """Both ways APOD titles write a date: '2026 November 9' and '9 November 2026'."""
+    return f"{d.year} {d:%B} {d.day}", f"{d.day} {d:%B} {d.year}"
+
+
+def first_image(html_text: str) -> str:
+    for u in re.findall(r"""<img[^>]+src=["']([^"']+)["']""", html_text or "", re.I):
+        if u.startswith("http") and not _is_logo(u):
+            return u
+    return ""
+
+
+def og_image(html_text: str) -> str:
+    for m in re.finditer(r"""<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*>""", html_text or "", re.I):
+        c = re.search(r"""content=["']([^"']+)["']""", m.group(0))
+        if c and c.group(1).startswith("http") and not _is_logo(c.group(1)):
+            return html.unescape(c.group(1))
+    return ""
+
+
+def apod_credit(text: str) -> str:
+    m = re.search(r"(?:Image|Video|Illustration)?\s*Credit(?:s)?(?:\s*(?:&|and)\s*Copyright)?\s*:\s*(.+?)(?:\s{2,}|\n|Explanation:|$)",
+                  text or "", re.I)
+    return re.sub(r"\s+", " ", m.group(1)).strip(" .;")[:120] if m else ""
+
+
+def parse_apod_feed(xml_bytes: bytes) -> list[dict]:
+    """The feed's items as {title, day_text, url, image, video, body} (image may be "" if not in the feed)."""
+    root = ET.fromstring(xml_bytes)
+    out = []
+    for it in root.findall("./channel/item"):
+        raw_title = (it.findtext("title") or "").strip()
+        body_html = (it.findtext(_CONTENT) or "") + " " + (it.findtext("description") or "")
+        image = ""
+        for el in it.findall(f"{_MEDIA}content") + it.findall(f"{_MEDIA}thumbnail") + it.findall("enclosure"):
+            u = el.get("url", "")
+            if u.startswith("http") and not _is_logo(u) and (el.tag == "enclosure" and "image" in el.get("type", "image")
+                                                           or el.tag != "enclosure"):
+                image = u
+                break
+        image = image or first_image(body_html)
+        vid = re.search(r"""<iframe[^>]+src=["']([^"']+)["']""", body_html, re.I)
+        out.append({"title": apod_title(html.unescape(raw_title)), "raw_title": raw_title,
+                    "url": (it.findtext("link") or "").strip(), "image": image,
+                    "video": html.unescape(vid.group(1)) if vid else "", "body": html_to_text(body_html)})
+    return out
+
+
+def apod_from(item: dict) -> dict:
+    body = item["body"]
+    expl = re.split(r"Explanation:\s*", body, maxsplit=1)
+    text = expl[1] if len(expl) > 1 else body
+    text = re.split(r"Tomorrow's picture:|Authors? & editors?:", text)[0]
+    return {"title": item["title"], "text": first_sentences(text.strip(), 3), "image": item["image"],
+            "video": item["video"], "credit": apod_credit(body) or "NASA", "url": item["url"] or APOD_HOME}
 
 
 def fetch_apod(day: date) -> dict:
-    from .config import cfg
-    key = cfg("NASA_API_KEY", "") or "DEMO_KEY"
-    try:
-        a = get_json(APOD_API, params={"api_key": key, "date": day.isoformat(), "thumbs": "true"})
-    except RuntimeError as e:
-        if "HTTP 400" not in str(e) and "HTTP 404" not in str(e):
-            raise
-        # just after midnight today's picture may not be posted yet: use the latest one
-        a = get_json(APOD_API, params={"api_key": key, "thumbs": "true"})
-    r = clean_apod(a)
-    if not r["title"] or not r["image"].startswith("http"):
-        raise RuntimeError("no picture today (it may be an interactive page)")
-    return r
+    r = requests.get(APOD_FEED, headers={"User-Agent": WEB_UA}, timeout=20)
+    r.raise_for_status()
+    items = parse_apod_feed(r.content)
+    if not items:
+        raise RuntimeError("the APOD feed had no items")
+    want = apod_day_texts(day)
+    item = next((i for i in items if any(re.search(rf"\b{w}\b", i["raw_title"]) for w in want)), items[0])
+    if not item["image"] and item["url"].startswith("http"):        # read the page's own preview image
+        pg = requests.get(item["url"], headers={"User-Agent": WEB_UA}, timeout=20)
+        pg.raise_for_status()
+        item["image"] = og_image(pg.text) or first_image(pg.text)
+    a = apod_from(item)
+    if not a["title"] or not a["image"].startswith("http") or _is_logo(a["image"]):
+        raise RuntimeError("no picture found for today's APOD")
+    return a
 
 
 # ---- Recipe of the day (TheMealDB) -------------------------------------------------------------------
@@ -431,10 +490,12 @@ EXTRA_SOURCES = {"history": fetch_history,
 
 
 def current_format(kind: str, saved) -> bool:
-    """False for a saved item from an older source, which is then fetched again and replaced: an animal
-    saved before the switch to iNaturalist (or by the R version of the app) has no taxon_id."""
+    """False for a saved item that should be fetched again and replaced: an animal that didn't come from
+    iNaturalist (no taxon_id; e.g. saved by the R version of the app), or a space photo that is a logo."""
     if kind == "animal":
         return isinstance(saved, dict) and bool(saved.get("taxon_id"))
+    if kind == "space":
+        return isinstance(saved, dict) and not _is_logo(str(saved.get("image") or ""))
     return True
 
 
@@ -455,9 +516,10 @@ def get_extra(kind: str, day: date | None = None):
         print(f"[extras] {kind} failed: {e}")
         _fail[kind] = time.time()
         return saved            # an older-format item is still better than nothing
-    # "do update" only replaces an older-format item (see current_format); otherwise the first one saved wins
+    # "do update" only replaces an item current_format() rejects; otherwise the first one saved wins
     db.run("""insert into daily_extras (extra_date, kind, content) values ($1::date, $2, $3)
               on conflict (extra_date, kind) do update set content = excluded.content
-              where daily_extras.content not like '%"taxon_id"%' and excluded.kind = 'animal'""",
+              where (excluded.kind = 'animal' and daily_extras.content not like '%"taxon_id"%')
+                 or (excluded.kind = 'space' and daily_extras.content ~* 'logo|favicon|placeholder')""",
            day, kind, json.dumps(val))
     return val

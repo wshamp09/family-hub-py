@@ -105,7 +105,7 @@ Open your project at [supabase.com/dashboard](https://supabase.com/dashboard), o
 
 The schema creates 27 tables, the private `photos` storage bucket and, on an empty database, two starter family members. It also turns on Row Level Security. With no policies defined, that blocks the public Supabase REST API from reaching your data; the app connects directly to the database instead.
 
-`sql/schema.sql` is safe to run again at any time. On a database that already has tables, it adds whatever is missing and brings existing tables up to date without touching your data. It also removes tables the app no longer uses, with their data: `journal_entries` and `journal_prompts`.
+`sql/schema.sql` is safe to run again at any time. On a database that already has tables, it adds whatever is missing and brings existing tables up to date without touching your data.
 
 ### 3. Copy the database connection details
 
@@ -146,8 +146,6 @@ Put both emails in `ADMIN_EMAILS` in step 7. That makes you both admins, so eith
 3. Fill in every value from steps 3–6. Keep the quotes around each value.
 4. **Groq (AI):** create a key at [console.groq.com](https://console.groq.com) under **API Keys** → `GROQ_API_KEY`. `GROQ_MODEL` defaults to `openai/gpt-oss-120b`. Groq retires models from time to time. If the configured model stops working, the app asks Groq which models are live, switches to one automatically, and writes the model it chose to the app log. Copy that name into `GROQ_MODEL` to make it permanent.
 5. **School run traffic (TomTom):** sign in at [developer.tomtom.com](https://developer.tomtom.com), open **API Keys** (a default key is created with the account; it covers Routing and Search) and copy it → `TOMTOM_API_KEY`. The free tier is far more than the app needs (about 36 requests a weekday, plus one lookup when an address changes). Without a key, the rest of the app works and the school run line says the key is missing.
-
-6. **NASA space photo (optional):** get a free key at [api.nasa.gov](https://api.nasa.gov) (name and email; the key arrives straight away) → `NASA_API_KEY`. Without one, the app uses NASA's shared demo key, which allows only a few requests a day for everyone on the same server, so the photo may sometimes be missing.
 
 `secrets.toml` is listed in `.gitignore`, so it never goes to GitHub. Community Cloud gets the same values by pasting them into the app's **Secrets** box (step 11).
 
@@ -193,8 +191,8 @@ What it checks:
   - the Supabase secret key works
   - bible-api.com; Wikipedia, iNaturalist, Open Trivia DB and ZenQuotes; Merriam-Webster
   - TheMealDB (recipe of the day)
-  - NASA's Astronomy Picture of the Day (says whether your own key or the shared demo key was used)
-  - the headline feeds (NPR, and Jacksonville Today or News4JAX)
+  - NASA's Astronomy Picture of the Day (science.nasa.gov feed)
+  - the headline feeds (NPR and News4JAX), listing each feed address and whether it worked
   - daily learning: builds a day's lessons from Wikipedia with Groq (nothing is saved)
   - the Art Institute of Chicago and Google's holiday calendar
   - Open-Meteo weather
@@ -400,7 +398,7 @@ It opens like an app and stays signed in (each visit renews it; 30 days without 
   - a chilly morning (45° or below)
 
 **Today's extras.** Each item is fetched once a day, saved, and shown to everyone. If a source is down, that line is skipped and tried again 30 minutes later.
-- **Headlines:** the top 3 national stories from NPR and the top 2 local stories from Jacksonville Today (WJCT's nonprofit newsroom), each with its outlet and how long ago it was posted. Tap a headline to read it on the outlet's site. Only headlines are shown, no AI summaries. They refresh every 2 hours and everyone sees the same set. If a feed can't be reached, the app tries a backup (NPR's general news feed, or News4JAX local news) and otherwise keeps the last headlines up.
+- **Headlines:** the top 3 national stories from NPR and the top 2 local stories from News4JAX (WJXT Channel 4), each with its outlet and how long ago it was posted. Tap a headline to read it on the outlet's site. Only headlines are shown, no AI summaries. They refresh every 2 hours (after 30 minutes if national or local came back empty) and everyone sees the same set. Each outlet has backup feed addresses: NPR's other news feeds, and News4JAX's general news and main feeds. If none can be reached, the last headlines stay up.
 - **This day in history:** one or two events from Wikipedia's "On this day", with a link to read more.
 - **Dinner question:** a conversation starter written by AI for the family. It avoids the past three weeks' questions.
 - **Animal of the day (spotted near home):** a wild animal that someone photographed within about 25 miles of home in the last two weeks, from [iNaturalist](https://www.inaturalist.org) (free, no key). It shows the photo, the common and scientific names, what kind of animal it is and the day it was seen ("Bird spotted near home on Nov 5"), a short description, and a link to the sighting.
@@ -409,7 +407,7 @@ It opens like an app and stays signed in (each visit renews it; 30 days without 
   - **Variety:** the same species isn't shown again within 60 days. If nothing new was seen in the last two weeks, it looks back 60 days.
   - **Home:** the location comes from `WEATHER_LAT` and `WEATHER_LON`. Exact spots aren't shown.
   - If the day's saved animal came from an older source (for example the R version of the app, which shares the database), it's replaced with an iNaturalist one.
-- **Space photo of the day:** NASA's Astronomy Picture of the Day: the picture, its title, a few sentences of NASA's explanation, and the photographer's credit. Tap the picture to open NASA's page for it. On days when it's a video, you see its preview with a **Watch today's video** link. Just after midnight, before NASA posts the new one, it shows the latest. On the rare days it's an interactive page rather than a picture, it's left out.
+- **Space photo of the day:** NASA's Astronomy Picture of the Day from its free feed at science.nasa.gov (no key needed): the picture, its title, a few sentences of the explanation, and the credit. Tap the picture to open NASA's page for it. On video days, you see the video's preview with a **Watch today's video** link. If today's isn't posted yet, it shows the latest one. NASA's logo is never shown in place of the picture.
 - **Recipe of the day:** see **Meals** above.
 - **Art of the day:** a public-domain painting from the Art Institute of Chicago (free, no key): the image, title, year, artist and a few sentences from the museum's description, with a link to the museum page. Tap the picture to see it full size there. The museum's picture server only answers requests that come from its own website, so the app downloads each day's picture itself and shows its own copy (if that fails, the painting shows without its picture). The descriptions are licensed CC BY, so the museum is credited under each one.
 - **Trivia (Trivial Pursuit style):** one multiple-choice question a day from the Open Trivia Database (free, CC BY-SA 4.0). It's the same question for everyone, and each person answers once.

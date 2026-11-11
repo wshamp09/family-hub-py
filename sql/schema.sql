@@ -340,9 +340,6 @@ create table if not exists countdowns (
 
 -- --------------------------------------------- Upgrades to earlier tables ----
 -- (No effect on a fresh install; brings an existing database up to date.)
--- Tables the app no longer uses (removed with their data).
-drop table if exists journal_entries;
-drop table if exists journal_prompts;
 alter table chores    add column if not exists optional boolean not null default false;
 alter table chores    add column if not exists due_day int check (due_day between 1 and 31);
 alter table chores    add column if not exists due_month int check (due_month between 1 and 12);
