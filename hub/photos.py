@@ -12,7 +12,7 @@ import math
 import random
 from datetime import date, datetime, timedelta
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 from . import auth, db
 from .config import APP_DIR, APP_TITLE, has_text, now, today
@@ -145,6 +145,19 @@ def photo_fix_week(week: date) -> None:
 
 
 PHOTO_CAPTION_MAX = 200
+PREVIEW_PX = 220
+
+
+def preview_jpeg(raw: bytes, px: int = PREVIEW_PX) -> bytes | None:
+    """A small, right-way-up JPEG of an upload for the caption list (browsers can't show iPhone HEIC files)."""
+    try:
+        im = ImageOps.exif_transpose(Image.open(io.BytesIO(raw)))
+        im.thumbnail((px, px))
+        out = io.BytesIO()
+        im.convert("RGB").save(out, "JPEG", quality=80)
+        return out.getvalue()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def photo_add(raw: bytes, user: dict, fallback_date: date | None = None, caption: str = "") -> dict:
@@ -235,45 +248,62 @@ def photo_date_label(d: date) -> str:
     return _nolead(d.strftime("%a, %b %d, %Y"))
 
 
-# ---- Monthly collage ---------------------------------------------------------------------------------
-# One band per week, top to bottom. The photo of the week fills the left of its band (all of it when
-# it's the only one); up to 6 others sit in a grid on the right, the last showing "+N" if there are
-# more. Sizes are in pixels on a 2400 x 3000 canvas (8 x 10 in at 300 dpi).
+# Monthly collage: an 8 x 10 in page (2400 x 3000 px at 300 dpi). Each week is a band headed by its dates; the
+# photo of the week is a large print on the left, and up to 6 others are smaller prints scattered in one or two
+# staggered rows to its right (the last shows "+N" if there are more). Prints overlap a little, like a scrapbook.
 COLLAGE_W, COLLAGE_H = 2400, 3000
+PRINT_FRAME = (0.045, 3.4)       # side border (share of the shorter side) and bottom border (times the side)
 
 
-def collage_layout(counts: list[int], W: int = COLLAGE_W, H: int = COLLAGE_H, margin: int = 70, header: int = 250,
-                   label: int = 64, gap: int = 26, max_extra: int = 6) -> dict:
-    """Pure; tested in check_setup. Weeks and slots are 1-based (as in the R app)."""
-    k = len(counts)
+def print_size(box_h: float, aspect: float) -> tuple[int, int]:
+    """A print's outer size for a given height and photo shape (width / height, held to 0.75-1.5)."""
+    a = min(1.5, max(0.75, aspect or 1.0))
+    side = box_h * PRINT_FRAME[0]
+    photo_h = box_h - side - side * PRINT_FRAME[1]
+    return round(photo_h * a + 2 * side), round(box_h)
+
+
+def scrapbook_layout(weeks: list[list[float]], W: int = COLLAGE_W, H: int = COLLAGE_H, margin: int = 70,
+                     header: int = 290, label: int = 62, gap: int = 46, max_extra: int = 6) -> dict:
+    """weeks: each week's photo shapes (width / height), photo of the week first. Returns the prints
+    (centre, size, week, slot, "+N") and the week labels. Pure; tested in check_setup."""
+    k = len(weeks)
     if not k:
         raise ValueError("no photos this month")
-    bh = math.floor((H - 2 * margin - header - k * label - (k - 1) * gap) / k)
+    bh = (H - 2 * margin - header - k * label - (k - 1) * gap) / k
     inner = W - 2 * margin
-    tiles, labels = [], []
+    prints, labels = [], []
     y = margin + header
-    for i, c in enumerate(counts, 1):
-        labels.append({"week": i, "x": margin, "y": y, "w": inner, "h": label})
-        y += label
-        n_extra = c - 1
-        shown = min(n_extra, max_extra)
-        if shown == 0:
-            tiles.append({"week": i, "slot": 1, "x": margin, "y": y, "w": inner, "h": bh, "more": 0})
-        else:
-            fw = math.floor(inner * 0.58)
-            tiles.append({"week": i, "slot": 1, "x": margin, "y": y, "w": fw, "h": bh, "more": 0})
-            cols = 1 if shown <= 2 else 2
-            rows = math.ceil(shown / cols)
-            ex, ew = margin + fw + gap, inner - fw - gap
-            cw = math.floor((ew - (cols - 1) * gap) / cols)
-            ch = math.floor((bh - (rows - 1) * gap) / rows)
-            for j in range(1, shown + 1):
-                r, cc = (j - 1) // cols, (j - 1) % cols
-                wide = cols == 2 and j == shown and shown % 2 == 1   # a lone last tile spans both columns
-                tiles.append({"week": i, "slot": j + 1, "x": ex + cc * (cw + gap), "y": y + r * (ch + gap),
-                              "w": ew if wide else cw, "h": ch, "more": n_extra - shown if j == shown else 0})
-        y += bh + gap
-    return {"tiles": tiles, "labels": labels, "band": bh}
+    for i, shapes in enumerate(weeks, 1):
+        labels.append({"week": i, "x": margin, "y": round(y), "h": label})
+        top = y + label
+        fw, fh = print_size(min(bh * 1.06, H - 40 - top), shapes[0])
+        extra = shapes[1:]
+        shown = min(len(extra), max_extra)
+        fcx = margin + fw / 2 + 8 if shown else margin + inner / 2
+        prints.append({"week": i, "slot": 1, "cx": round(fcx), "cy": round(top + bh / 2), "w": fw, "h": fh, "more": 0})
+        if shown:
+            x0 = margin + fw + gap
+            rw = W - margin - x0
+            rows = 1 if shown <= 3 else 2
+            per_row = math.ceil(shown / rows)
+            cell_w, cell_h = rw / per_row, bh / rows
+            for j in range(shown):
+                r, c = j // per_row, j % per_row
+                in_row = per_row if r < rows - 1 else shown - per_row * (rows - 1)
+                pad = (per_row - in_row) * cell_w / 2                     # centre a shorter last row
+                stagger = (cell_w * 0.18) * (1 if r % 2 else -1) if rows == 2 else 0
+                pw, ph = print_size(min(cell_h * (1.26 if rows == 2 else 1.0), bh), extra[j])
+                if pw > cell_w * 1.18:                                    # keep wide prints from crowding
+                    pw, ph = print_size(ph * cell_w * 1.18 / pw, extra[j])
+                cx = x0 + pad + cell_w * (c + 0.5) + stagger
+                cx = min(max(cx, x0 + pw / 2), W - margin - pw / 2)
+                cy = top + cell_h * (r + 0.5) + (cell_h * 0.08 * (1 if r else -1) if rows == 2 else 0)
+                cy = min(max(cy, ph / 2 + 20), H - 20 - ph / 2)
+                prints.append({"week": i, "slot": j + 2, "cx": round(cx), "cy": round(cy), "w": pw, "h": ph,
+                               "more": len(extra) - shown if j == shown - 1 else 0})
+        y = top + bh + gap
+    return {"prints": prints, "labels": labels, "band": bh}
 
 
 def _cover(img: Image.Image, w: int, h: int) -> Image.Image:
@@ -282,50 +312,128 @@ def _cover(img: Image.Image, w: int, h: int) -> Image.Image:
     return ImageOps.fit(img, (w, h), Image.LANCZOS, centering=(0.5, 0.5))
 
 
+# Polaroid scrapbook look: each photo is a white-framed print (deeper bottom edge with its caption), tilted a
+# little and slightly overlapping its neighbours, held on with washi tape. Tilts and offsets come from a seeded
+# random generator (month + photo), so remaking a month's collage gives the same arrangement.
+PAPER = "#F3E8D6"
+INK, MUTED = "#2E2A24", "#6B5A3E"
+TAPE_COLOURS = ["#E8B4B8", "#A8D5BA", "#F6D186", "#9EC1E6", "#C7B7E2", "#F4A582"]
+TILT_FEATURED, TILT_OTHER = 2.5, 6.0     # largest tilt in degrees
+
+
+def _font(file: str, size: int):
+    try:
+        return ImageFont.truetype(str(FONTS / file), size)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def _fit_text(dr, text: str, font, max_w: int) -> str:
+    if dr.textlength(text, font=font) <= max_w:
+        return text
+    while text and dr.textlength(text + "…", font=font) > max_w:
+        text = text[:-1]
+    return text.rstrip() + "…"
+
+
+def polaroid(img: Image.Image, w: int, h: int, caption: str = "", more: int = 0) -> Image.Image:
+    """A white-framed print, w x h (RGBA): the photo fills the top, the caption sits in the deeper bottom edge."""
+    side = max(10, round(h * PRINT_FRAME[0]))
+    bottom = round(side * PRINT_FRAME[1])
+    pw, ph_ = w - 2 * side, h - side - bottom
+    card = Image.new("RGBA", (w, h), "#FFFDF8")
+    photo = _cover(img, pw, ph_)
+    if more > 0:
+        photo = Image.blend(photo, Image.new("RGB", photo.size, "#23363A"), 0.55)
+        ImageDraw.Draw(photo).text((pw / 2, ph_ / 2), f"+{more}", font=_font("BricolageGrotesque-Bold.ttf", max(40, ph_ // 4)),
+                                   fill="white", anchor="mm")
+    card.paste(photo, (side, side))
+    dr = ImageDraw.Draw(card)
+    dr.rectangle([0, 0, w - 1, h - 1], outline="#E9E1D2", width=2)
+    if caption:
+        f = _font("WorkSans-Italic.ttf", max(22, min(58, round(bottom * 0.42))))
+        dr.text((w / 2, h - bottom / 2 - side * 0.1), _fit_text(dr, caption, f, w - 2 * side), font=f, fill=INK, anchor="mm")
+    return card
+
+
+def _tape(w: int, h: int, colour: str, angle: float) -> Image.Image:
+    t = Image.new("RGBA", (w, h), colour + "B4")          # see-through, like real washi tape
+    d = ImageDraw.Draw(t)
+    for x in range(0, w, max(6, h // 3)):                 # faint stripes
+        d.line([(x, 0), (x - h, h)], fill=(255, 255, 255, 40), width=max(2, h // 10))
+    for x in (0, w - 1):                                  # torn ends
+        for y in range(0, h, 6):
+            d.point((x, y), fill=(0, 0, 0, 0))
+    return t.rotate(angle, resample=Image.BICUBIC, expand=True)
+
+
+def _place(canvas: Image.Image, card: Image.Image, cx: int, cy: int, angle: float, rng: random.Random) -> None:
+    """Rotate a print, drop a soft shadow, paste it centred on (cx, cy) and tape it on."""
+    rot = card.rotate(angle, resample=Image.BICUBIC, expand=True)
+    alpha = rot.split()[3]
+    shadow = Image.new("RGBA", rot.size, (40, 30, 20, 0))
+    shadow.putalpha(alpha.point(lambda a: int(a * 0.38)).filter(ImageFilter.GaussianBlur(14)))
+    x, y = cx - rot.width // 2, cy - rot.height // 2
+    canvas.alpha_composite(shadow, (max(0, x + 10), max(0, y + 14)))
+    canvas.alpha_composite(rot, (max(0, x), max(0, y)))
+    tw, th = max(90, card.width // 3), max(34, card.width // 11)
+    tape = _tape(tw, th, rng.choice(TAPE_COLOURS), angle + rng.uniform(-8, 8))
+    canvas.alpha_composite(tape, (max(0, cx - tape.width // 2 + rng.randint(-20, 20)), max(0, y - tape.height // 3)))
+
+
+def _paper(w: int, h: int) -> Image.Image:
+    base = Image.new("RGB", (w, h), PAPER)
+    grain = Image.effect_noise((w, h), 18).convert("RGB")
+    return Image.blend(base, grain, 0.06).convert("RGBA")
+
+
 def make_collage(month_start: date, rows: list[dict] | None = None, images: dict | None = None) -> bytes:
-    """Draw the collage for a month and return JPEG bytes. `rows` + `images` ({id: PIL image}) let
+    """Draw the month's polaroid collage and return JPEG bytes. `rows` + `images` ({id: PIL image}) let
     check_setup draw from made-up photos instead of storage."""
     ph = rows if rows is not None else photos_in_month(month_start)
     if not ph:
         raise ValueError(f"no photos in {month_start:%B %Y}")
     weeks = list(dict.fromkeys(p["week_start"] for p in ph))
-    counts = [sum(1 for p in ph if p["week_start"] == w) for w in weeks]
-    lay = collage_layout(counts)
+    by_week = [[p for p in ph if p["week_start"] == w] for w in weeks]
+    srcs = {p["id"]: (images[p["id"]] if images is not None else Image.open(io.BytesIO(st_download(p["path"]))))
+            for p in ph}
+    lay = scrapbook_layout([[srcs[p["id"]].width / srcs[p["id"]].height for p in wk] for wk in by_week])
     print(f"[collage] {month_start:%B %Y}: {len(ph)} photos in {len(weeks)} weeks")
-    ink, muted = "#23363A", "#6B5A3E"
-
-    def font(file, size):
-        try:
-            return ImageFont.truetype(str(FONTS / file), size)
-        except OSError:
-            return ImageFont.load_default()
-    head, body = font("BricolageGrotesque-Bold.ttf", 120), font("WorkSans-Regular.ttf", 46)
-    lab = font("BricolageGrotesque-Bold.ttf", 40)
-    more_f = font("BricolageGrotesque-Bold.ttf", 90)
-    canvas = Image.new("RGB", (COLLAGE_W, COLLAGE_H), "#F6EEE3")
+    canvas = _paper(COLLAGE_W, COLLAGE_H)
     dr = ImageDraw.Draw(canvas)
-    dr.text((70, 60), month_start.strftime("%B %Y"), font=head, fill=ink)
-    dr.text((74, 200), f"{APP_TITLE} · {len(ph)} {'photo' if len(ph) == 1 else 'photos'}", font=body, fill=muted)
+    # title on a big strip of tape
+    head, sub = _font("BricolageGrotesque-Bold.ttf", 118), _font("WorkSans-Italic.ttf", 46)
+    title = month_start.strftime("%B %Y")
+    tw = int(dr.textlength(title, font=head)) + 120
+    banner = Image.new("RGBA", (tw, 170), TAPE_COLOURS[month_start.month % len(TAPE_COLOURS)] + "D0")
+    ImageDraw.Draw(banner).text((tw / 2, 85), title, font=head, fill=INK, anchor="mm")
+    banner = banner.rotate(-1.5, resample=Image.BICUBIC, expand=True)
+    canvas.alpha_composite(banner, (60, 40))
+    dr.text((80, 212), f"{APP_TITLE} · {len(ph)} {'photo' if len(ph) == 1 else 'photos'}", font=sub, fill=MUTED)
+    lab = _font("BricolageGrotesque-Bold.ttf", 38)
+    week_tags = []          # week date labels go on last, on top of the prints
     for i, w in enumerate(weeks, 1):
-        wk = [p for p in ph if p["week_start"] == w]
+        rng = random.Random(f"{month_start:%Y-%m}-{i}")
+        wk = by_week[i - 1]
         lb = next(l for l in lay["labels"] if l["week"] == i)
-        cap = (wk[0].get("caption") or "").strip()
-        if len(cap) > 70:
-            cap = cap[:68] + "…"
-        dr.text((lb["x"], lb["y"] + 8), week_label(w) + (f"  ·  {cap}" if cap else ""), font=lab, fill=ink)
-        for t in [t for t in lay["tiles"] if t["week"] == i]:
+        text = week_label(w)
+        lw = int(dr.textlength(text, font=lab)) + 50
+        strip = Image.new("RGBA", (lw, 56), TAPE_COLOURS[(i + 2) % len(TAPE_COLOURS)] + "E6")
+        ImageDraw.Draw(strip).text((lw / 2, 28), text, font=lab, fill=INK, anchor="mm")
+        week_tags.append((strip.rotate(rng.uniform(-2, 2), resample=Image.BICUBIC, expand=True), (lb["x"], lb["y"] + 2)))
+        mine = [t for t in lay["prints"] if t["week"] == i]
+        for t in sorted(mine, key=lambda t: t["slot"] == 1):          # the photo of the week goes on top
             p = wk[t["slot"] - 1]
-            src = images[p["id"]] if images is not None else Image.open(io.BytesIO(st_download(p["path"])))
-            tile = _cover(src, t["w"], t["h"])
-            if t["more"] > 0:
-                shade = Image.new("RGB", tile.size, "#23363A")
-                tile = Image.blend(tile, shade, 0.55)
-                td = ImageDraw.Draw(tile)
-                td.text((t["w"] / 2, t["h"] / 2), f"+{t['more']}", font=more_f, fill="white", anchor="mm")
-            canvas.paste(tile, (t["x"], t["y"]))
+            prng = random.Random(f"{month_start:%Y-%m}-{p['id']}")
+            tilt = TILT_FEATURED if t["slot"] == 1 else TILT_OTHER
+            card = polaroid(srcs[p["id"]], t["w"], t["h"], (p.get("caption") or "").strip(), t["more"])
+            _place(canvas, card, t["cx"] + prng.randint(-10, 10), t["cy"] + prng.randint(-8, 8),
+                   prng.uniform(-tilt, tilt), prng)
         print(f"[collage]   week {i} of {len(weeks)} drawn")
+    for tag, at in week_tags:
+        canvas.alpha_composite(tag, at)
     out = io.BytesIO()
-    canvas.save(out, "JPEG", quality=90, dpi=(300, 300))
+    canvas.convert("RGB").save(out, "JPEG", quality=90, dpi=(300, 300))
     return out.getvalue()
 
 

@@ -28,12 +28,18 @@ if _missing:
     st.stop()
 
 session.render_store()               # this device's saved sign-in (drawn first in every run)
+# The sign-in screens are drawn inside one placeholder. Once signed in it's emptied straight away, so the
+# sign-in screen doesn't linger (faded) while Today loads.
+gate = st.empty()
 if session.try_saved_login() == "wait":
-    session.waiting_page()
+    with gate.container():
+        session.waiting_page()
     st.stop()
 if not ui.user():
-    session.login_page()
+    with gate.container():
+        session.login_page()
     st.stop()
+gate.empty()
 
 st.session_state["_run_id"] = st.session_state.get("_run_id", 0) + 1
 

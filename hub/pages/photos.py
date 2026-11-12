@@ -64,16 +64,29 @@ def upload_card() -> None:
         k = st.session_state.get("photo_up_key", 0)
         files = st.file_uploader("Choose photos", type=["jpg", "jpeg", "png", "heic", "heif", "webp"],
                                  accept_multiple_files=True, key=f"photo_up_{k}", label_visibility="collapsed")
-        cap = st.text_input("Caption (optional)", key=f"photo_cap_{k}", max_chars=photos.PHOTO_CAPTION_MAX,
-                            placeholder="e.g. First trip to the beach",
-                            help="Saved on every photo you add this time. Change any of them later with Open.")
+        caps = []
+        if files:
+            st.caption("Add a caption to any photo (optional). You can change it later with Open.")
+            previews = st.session_state.setdefault("photo_previews", {})
+            for i, f in enumerate(files):
+                fid = getattr(f, "file_id", None) or f"{f.name}-{f.size}"
+                if fid not in previews:
+                    previews[fid] = photos.preview_jpeg(f.getvalue())
+                c1, c2 = st.columns([1, 4], vertical_alignment="center")
+                if previews[fid]:
+                    c1.image(previews[fid], use_container_width=True)
+                else:
+                    c1.caption("🖼️")
+                caps.append(c2.text_input(f"Caption for {f.name}", key=f"photo_cap_{k}_{i}",
+                                          max_chars=photos.PHOTO_CAPTION_MAX, label_visibility="collapsed",
+                                          placeholder=f"Caption for {f.name} (optional)"))
         if files and st.button(f"Add {len(files)} photo{'s' if len(files) != 1 else ''}", type="primary", key="photo_add"):
             added, failed = [], []
             bar = st.progress(0.0, text="Adding photos…")
             for i, f in enumerate(files, 1):
                 print(f"[photos] adding {i} of {len(files)}: {f.name}")
                 try:
-                    added.append(photos.photo_add(f.getvalue(), ui.user(), caption=cap))
+                    added.append(photos.photo_add(f.getvalue(), ui.user(), caption=caps[i - 1]))
                 except Exception as e:  # noqa: BLE001
                     print(f"[photos] {f.name}: {e}")
                     failed.append(f.name)
@@ -85,7 +98,8 @@ def upload_card() -> None:
             if failed:
                 st.error(f"Couldn't add: {', '.join(failed)}. If it's an iPhone photo, try again or set "
                          "Camera > Formats > Most Compatible.")
-            st.session_state["photo_up_key"] = k + 1        # clears the picker
+            st.session_state["photo_up_key"] = k + 1        # clears the picker and the caption boxes
+            st.session_state.pop("photo_previews", None)
             if not failed:
                 st.rerun()
         st.caption("Each photo goes in the week it was taken (from the camera's date, or today if there isn't one). "

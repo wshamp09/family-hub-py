@@ -36,11 +36,15 @@ def porch() -> None:
     wx_html = notes_html = days_html = sun_html = ""
     if wx:
         info = weather.wx_code_info(wx["now_code"], wx["is_day"])
+        nh = weather.next_hour_rain(wx, t)
         wx_html = (f'<div class="sh-wx"><div class="sh-wx-now"><span class="sh-wx-icon">{info["icon"]}</span>'
                    f'<span class="sh-wx-temp">{round(wx["now_temp"])}°</span></div>'
                    f'<div class="sh-wx-range"><span class="sh-wx-hilo">High {round(wx["hi"][0])}° / Low {round(wx["lo"][0])}°'
-                   f'</span><br>{esc(info["label"])}</div></div>')
+                   f'</span><br>{esc(info["label"])}'
+                   + (f'<div class="sh-wx-next">{nh["icon"]} {esc(nh["text"])}</div>' if nh else "") + '</div></div>')
         notes = weather.weather_notes(wx, t)
+        if nh and nh["icon"] == "☔":                      # the next-hour line already says it's raining
+            notes = [n for n in notes if not n["text"].startswith("Rain likely now")]
         if notes:
             notes_html = '<div class="sh-wx-notes">' + "".join(
                 f'<span class="sh-wx-note">{n["icon"]} {esc(n["text"])}</span>' for n in notes) + "</div>"
@@ -274,21 +278,6 @@ def extras_card() -> None:
                                + (f'<div class="small" style="font-weight:600">— {esc(qt["author"])}</div>' if qt.get("author") else "")
                                + '<div class="small sh-muted">Inspirational quotes provided by <a href="https://zenquotes.io/" '
                                  'target="_blank" rel="noopener">ZenQuotes API</a></div>'))
-        if nw and nw.get("items"):
-            at = now()
-
-            def headline(it) -> str:
-                when = news.ago(it.get("published", ""), at)
-                return (f'<div class="sh-extra-text"><a href="{esc(it["url"])}" target="_blank" rel="noopener">'
-                        f'{esc(it["title"])}</a> <span class="small sh-muted">· {esc(it["source"])}'
-                        + (f' · {esc(when)}' if when else "") + '</span></div>')
-            rows = ""
-            for gkey, glabel in news.NEWS_GROUPS.items():
-                items = [it for it in nw["items"] if it.get("group") == gkey]
-                rows += f'<div class="sh-news-head">{esc(glabel)}</div>'
-                rows += ("".join(headline(it) for it in items) if items else
-                         '<div class="small sh-muted">Couldn\'t be loaded just now; the app tries again every 30 minutes.</div>')
-            parts.append(_item("bills", "📰", "Headlines", rows))
         if g["history"]:
             parts.append(_item("appt", "🏛️", "This day in history", "".join(
                 f'<div class="sh-extra-text"><strong>{esc(e["year"])}</strong> {esc(e["text"])}{_link(e.get("url"))}</div>'
@@ -350,6 +339,21 @@ def extras_card() -> None:
                            "".join(f'<div class="sh-extra-text">{esc(l["title"])} <span class="sh-muted">· {l["minutes"]} min</span></div>'
                                    for l in (ls or {}).get("lessons", []))
                            or '<div class="sh-extra-text">Science, history, money and how things work, plus the word of the day.</div>'))
+        if nw and nw.get("items"):
+            at = now()
+
+            def headline(it) -> str:
+                when = news.ago(it.get("published", ""), at)
+                return (f'<div class="sh-extra-text"><a href="{esc(it["url"])}" target="_blank" rel="noopener">'
+                        f'{esc(it["title"])}</a> <span class="small sh-muted">· {esc(it["source"])}'
+                        + (f' · {esc(when)}' if when else "") + '</span></div>')
+            rows = ""
+            for gkey, glabel in news.NEWS_GROUPS.items():
+                items = [it for it in nw["items"] if it.get("group") == gkey]
+                rows += f'<div class="sh-news-head">{esc(glabel)}</div>'
+                rows += ("".join(headline(it) for it in items) if items else
+                         '<div class="small sh-muted">Couldn\'t be loaded just now; the app tries again every 30 minutes.</div>')
+            parts.append(_item("bills", "📰", "Headlines", rows))
         if parts:
             st.html("".join(parts))
         c1, c2 = st.columns(2)
@@ -546,22 +550,25 @@ def bills_card() -> None:
             rows.bill_row(x, "today", today(), editable_amount=False)
 
 
+def _pair(left, right) -> None:
+    c1, c2 = st.columns(2)
+    with c1:
+        left()
+    if right:
+        with c2:
+            right()
+
+
 def page() -> None:
+    rows.duty_dialogs()
     porch()
     school_run()
+    _pair(appts_card, meals_card)        # what's on today, straight under the weather
     verse_card()
     extras_card()
     banners()
     countdown_card()
     gratitude_card()
-    rows.duty_dialogs()
-    # Priority order (phones stack these in this order): appointments, meals, notes, kids, chores,
-    # workouts, bills.
-    pairs = [(appts_card, meals_card), (notes_card, duties_card), (chores_card, workouts_card), (bills_card, None)]
-    for left, right in pairs:
-        c1, c2 = st.columns(2)
-        with c1:
-            left()
-        if right:
-            with c2:
-                right()
+    # The rest in priority order (phones stack these in this order): notes, kids, chores, workouts, bills.
+    for left, right in [(notes_card, duties_card), (chores_card, workouts_card), (bills_card, None)]:
+        _pair(left, right)

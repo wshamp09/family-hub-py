@@ -401,7 +401,22 @@ def _():
     want = ["Rain likely after 3 PM (70%)", "Hot today: 94°", "Very high UV, wear sunscreen",
             "Rain likely tomorrow after 1 PM (55%)", "Chilly tomorrow morning: 44°"]
     check(n == want, f"got: {n}")
-    return f"{len(n)} notes as expected"
+    from hub.weather import next_hour_rain
+    t = datetime(2026, 11, 12, 13, 5, tzinfo=TZ)
+    hrs = [datetime(2026, 11, 12, h, tzinfo=TZ) for h in range(24)]
+    pr = [10] * 24
+    pr[14] = 60
+    q = [datetime(2026, 11, 12, 13, 0, tzinfo=TZ) + timedelta(minutes=15 * i) for i in range(12)]
+    base = {"hours": hrs, "rain": pr, "q_times": q}
+    cases = [([0] * 12, "Next hour: 60% chance of rain"), ([0, 0, 0.3] + [0] * 9, "Rain starting around 1:30 PM"),
+             ([0.4, 0.6, 0.2, 0] + [0] * 8, "Raining now, easing around 1:45 PM"), ([0.4] * 12, "Raining now"),
+             ([0] * 6 + [1] * 6, "Next hour: 60% chance of rain")]
+    for mm, want in cases:
+        got = next_hour_rain(dict(base, q_rain=mm), t)["text"]
+        check(got == want, f"next hour: expected '{want}', got '{got}'")
+    check(next_hour_rain({"hours": hrs, "rain": pr}, t)["text"] == "Next hour: 60% chance of rain",
+          "without 15-minute data the hourly chance should be used")
+    return f"{len(n)} notes as expected; next-hour rain line OK"
 
 
 @step("Moon phase")
@@ -489,12 +504,12 @@ def _():
     return "word, part of speech, pronunciation, definition, example and origin as expected"
 
 
-@step("Photos: weeks, photo of the week and collage layout")
+@step("Photos: weeks, photo of the week and the scrapbook collage layout")
 def _():
     from PIL import Image
     from hub.config import TZ
-    from hub.photos import (COLLAGE_H, COLLAGE_W, collage_layout, featured_pick, make_collage, photo_date_label,
-                            week_label)
+    from hub.photos import (COLLAGE_H, COLLAGE_W, PRINT_FRAME, featured_pick, make_collage, photo_date_label,
+                            print_size, scrapbook_layout, week_label)
     check(week_label(date(2026, 11, 2)) == "Nov 2 – 8, 2026", week_label(date(2026, 11, 2)))
     check(week_label(date(2026, 11, 30)) == "Nov 30 – Dec 6, 2026", week_label(date(2026, 11, 30)))
     check(week_label(date(2026, 12, 28)) == "Dec 28, 2026 – Jan 3, 2027", week_label(date(2026, 12, 28)))
@@ -506,17 +521,22 @@ def _():
     check(featured_pick(w) == 3, "none chosen: should be the first one added")
     w[2]["is_featured"] = True
     check(featured_pick(w) == 9, "should keep the chosen one")
-    tl = collage_layout([1, 3, 4, 8])["tiles"]
-    per_week = [sum(1 for x in tl if x["week"] == k) for k in (1, 2, 3, 4)]
-    check(len(tl) == 15 and per_week == [1, 3, 4, 7], f"tiles per week {per_week}")
-    check(sum(x["more"] for x in tl) == 1 and tl[-1]["more"] == 1, "8 in a week: 6 shown + '+1'")
-    check(tl[0]["w"] == COLLAGE_W - 140, "a lone photo should fill its band")
-    check(all(x["x"] >= 70 and x["y"] >= 70 and x["x"] + x["w"] <= COLLAGE_W - 70 and x["y"] + x["h"] <= COLLAGE_H - 70
-              for x in tl), "a tile falls outside the page")
-    for i, a in enumerate(tl):
-        for b in tl[i + 1:]:
-            check(not (a["x"] < b["x"] + b["w"] and b["x"] < a["x"] + a["w"] and a["y"] < b["y"] + b["h"]
-                       and b["y"] < a["y"] + a["h"]), "collage tiles overlap")
+    shapes = [[0.67], [1.5, 0.67, 1.0], [0.67, 1.33, 1.5, 1.0], [1.5] + [1.0, 0.67, 1.5, 1.33, 0.67, 1.0, 1.5]]
+    pr = scrapbook_layout(shapes)["prints"]
+    per_week = [sum(1 for x in pr if x["week"] == k) for k in (1, 2, 3, 4)]
+    check(len(pr) == 15 and per_week == [1, 3, 4, 7], f"prints per week {per_week}")
+    check(sum(x["more"] for x in pr) == 1 and pr[-1]["more"] == 1, "8 in a week: 6 shown + '+1'")
+    check(all(x["w"] / 2 <= x["cx"] <= COLLAGE_W - x["w"] / 2 and x["h"] / 2 <= x["cy"] <= COLLAGE_H - x["h"] / 2 for x in pr),
+          "a print falls off the page")
+    for k in (2, 3, 4):
+        wk = [x for x in pr if x["week"] == k]
+        f = wk[0]
+        check(f["slot"] == 1 and all(f["h"] >= x["h"] and f["cx"] < x["cx"] for x in wk[1:]),
+              f"week {k}: the photo of the week should be the biggest print, on the left")
+    check(abs(pr[0]["cx"] - COLLAGE_W / 2) <= 1, "a week with one photo should be centred")
+    w1, h1 = print_size(600, 3.0)
+    check(round((w1 - 2 * 600 * PRINT_FRAME[0]) / (600 - 600 * PRINT_FRAME[0] * (1 + PRINT_FRAME[1])), 2) == 1.5,
+          "very wide photos should be held to a 3:2 print")
     cols = ["#C9A37A", "#7FA99B", "#E3B66B", "#9BB7D4", "#D99A8B", "#A7C48A"]
     imgs = {i: Image.new("RGB", (1200, 800) if i % 2 else (800, 1200), cols[i % 6]) for i in range(1, 17)}
     wk = [date(2026, 11, 2)] + [date(2026, 11, 9)] * 3 + [date(2026, 11, 16)] * 4 + [date(2026, 11, 23)] * 8
@@ -525,7 +545,7 @@ def _():
     im = Image.open(io.BytesIO(out))
     check(im.size == (COLLAGE_W, COLLAGE_H), f"collage is {im.size}")
     (HERE / "collage_test.jpg").write_bytes(out)
-    return "layout ok; test collage written to collage_test.jpg (open it to check the look)"
+    return "polaroid layout ok; test collage written to collage_test.jpg (open it to check the look)"
 
 
 @step("Holidays: Google feed parsing and church days")
@@ -806,10 +826,12 @@ def _():
 
 @step("Weather service (open-meteo.com)", live=True)
 def _():
-    from hub.weather import fetch_weather
+    from hub.weather import fetch_weather, next_hour_rain
     w = fetch_weather()
     check(w is not None, "couldn't reach api.open-meteo.com")
-    return f"now {round(w['now_temp'])}°, high {round(w['hi'][0])}°, low {round(w['lo'][0])}°"
+    nh = next_hour_rain(w)
+    return (f"now {round(w['now_temp'])}°, high {round(w['hi'][0])}°, low {round(w['lo'][0])}°; "
+            f"{nh['text'] if nh else 'no next-hour line'} ({len(w['q_rain'])} fifteen-minute readings)")
 
 
 @step("Photo storage (Supabase Storage bucket 'photos')", live=True)

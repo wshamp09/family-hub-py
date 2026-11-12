@@ -11,7 +11,9 @@ import requests
 
 from .config import APP_TZ, TZ, cfg, now, today
 
-WEATHER_CACHE_MIN = 30
+WEATHER_CACHE_MIN = 15          # often enough for the next-hour rain line
+RAIN_MM = 0.1                   # rain in a 15-minute slot counts from this much (mm)
+NEXT_HOUR_WATCH = 2             # hours ahead to look for rain stopping
 _cache: dict = {}
 
 
@@ -59,6 +61,7 @@ def fetch_weather() -> dict | None:
         r = requests.get("https://api.open-meteo.com/v1/forecast", timeout=10, params={
             "latitude": cfg("WEATHER_LAT", "30.159"), "longitude": cfg("WEATHER_LON", "-81.628"),
             "current": "temperature_2m,weather_code,is_day", "hourly": "precipitation_probability",
+            "minutely_15": "precipitation", "forecast_minutely_15": 12,
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
                      "uv_index_max,sunrise,sunset",
             "temperature_unit": "fahrenheit", "timezone": APP_TZ, "forecast_days": 5})
@@ -76,12 +79,43 @@ def fetch_weather() -> dict | None:
          "hi": dl["temperature_2m_max"], "lo": dl["temperature_2m_min"],
          "rain_max": dl["precipitation_probability_max"], "uv": dl["uv_index_max"],
          "sunrise": [_local(t) for t in dl["sunrise"]], "sunset": [_local(t) for t in dl["sunset"]]}
+    m15 = j.get("minutely_15") or {}
+    d["q_times"] = [_local(t) for t in m15.get("time") or []]
+    d["q_rain"] = m15.get("precipitation") or []
     _cache["wx"] = (_time.time(), d)
     return d
 
 
 def hour_label(t: datetime) -> str:
     s = t.strftime("%I %p")
+    return s[1:] if s.startswith("0") else s
+
+
+def next_hour_rain(d: dict, t: datetime | None = None) -> dict | None:
+    """The always-shown line under the temperature. From the 15-minute forecast: rain starting within the hour,
+    or rain now and when it eases (within NEXT_HOUR_WATCH hours). Otherwise the hourly chance for the next hour
+    (the higher of this hour and the next)."""
+    t = t or now()
+    q = [(tm, mm) for tm, mm in zip(d.get("q_times") or [], d.get("q_rain") or []) if mm is not None
+         and tm + timedelta(minutes=15) > t and tm <= t + timedelta(hours=NEXT_HOUR_WATCH)]
+    if q:
+        wet = [mm >= RAIN_MM for _, mm in q]
+        if wet[0]:
+            stop = next((tm for (tm, _), w in zip(q, wet) if not w), None)
+            return {"icon": "☔", "text": f"Raining now, easing around {fmt_clock(stop)}" if stop else "Raining now"}
+        start = next((tm for (tm, _), w in zip(q, wet) if w and tm <= t + timedelta(hours=1)), None)
+        if start:
+            return {"icon": "☔", "text": f"Rain starting around {fmt_clock(start)}"}
+    probs = [p for h, p in zip(d.get("hours") or [], d.get("rain") or [])
+             if p is not None and h <= t + timedelta(hours=1) and h + timedelta(hours=1) > t]
+    if not probs:
+        return None
+    p = round(max(probs))
+    return {"icon": "🌂" if p < 30 else "☂️", "text": f"Next hour: {p}% chance of rain"}
+
+
+def fmt_clock(tm: datetime) -> str:
+    s = tm.strftime("%I:%M %p")
     return s[1:] if s.startswith("0") else s
 
 
